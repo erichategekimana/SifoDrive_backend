@@ -1,0 +1,14 @@
+-r base.txt
+
+# --- WSGI/ASGI Server ---
+gunicorn==23.0.0
+uvicorn[standard]==0.30.6
+
+# --- Performance & Caching ---
+django-redis==5.4.0
+
+# --- Security Hardening ---
+django-ratelimit==4.1.0
+
+# --- Monitoring ---
+sentry-sdk[django]==2.14.0
