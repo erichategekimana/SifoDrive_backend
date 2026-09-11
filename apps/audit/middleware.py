@@ -40,7 +40,8 @@ SENSITIVE_PATH_RULES: list[tuple[str, set[str], str]] = [
     # Admin user-list: every GET exposes a user directory
     ("/api/v1/auth/users/",          {"GET"},               AuditAction.NID_ACCESS),
 
-    # Irembo booking data — reading NID / applicant details
+    # Booking data — reading NID / applicant details
+    ("/api/v1/booking/",            {"GET", "PATCH"},       AuditAction.BOOKING_ACCESSED),
     ("/api/v1/irembo/",             {"GET", "PATCH"},       AuditAction.BOOKING_ACCESSED),
 
     # Exam proctoring snapshots or flagging actions

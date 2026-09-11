@@ -50,6 +50,12 @@ class UserRole(models.TextChoices):
     before they become official.
     """
 
+    TRAINING_ADMIN = "TRAINING_ADMIN", _("Training Administrator")
+    """
+    Pedagogical administrator. Manages courses, modules, lessons, learning
+    materials, and quiz banks. Can create, edit, update, publish, and delete curriculum.
+    """
+
     SYSTEM_ADMIN = "SYSTEM_ADMIN", _("System Admin")
     """
     Full platform control. Manages users, content, timetables, payments,

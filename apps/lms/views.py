@@ -74,6 +74,7 @@ from apps.core.permissions import (
     IsStudentOrGuest,
     IsSystemAdmin,
     IsTutor,
+    IsTutorOrTrainingAdmin,
 )
 
 from .models import (
@@ -119,14 +120,17 @@ logger = logging.getLogger("apps.lms")
 # ---------------------------------------------------------------------------
 
 def _is_content_staff(user) -> bool:
-    """Tutors and above can create/edit content."""
+    """Tutors, Training Admins, and System Admins can manage learning materials and quizzes."""
     return user.is_authenticated and user.role in (
-        UserRole.TUTOR, UserRole.SYSTEM_ADMIN
+        UserRole.TUTOR, UserRole.TRAINING_ADMIN, UserRole.SYSTEM_ADMIN
     )
 
 
 def _is_admin(user) -> bool:
-    return user.is_authenticated and user.role == UserRole.SYSTEM_ADMIN
+    """Training Admins and System Admins have administrative control over courses and modules."""
+    return user.is_authenticated and user.role in (
+        UserRole.TRAINING_ADMIN, UserRole.SYSTEM_ADMIN
+    )
 
 
 # ===========================================================================
@@ -157,16 +161,8 @@ class CourseCreateView(SuccessResponseMixin, generics.CreateAPIView):
     Tutors and Admins can create courses (draft state by default).
     """
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsTutorOrTrainingAdmin]
     serializer_class   = CourseWriteSerializer
-
-    def get_permissions(self):
-        if not _is_content_staff(self.request.user):
-            self.permission_denied(
-                self.request,
-                message="Only tutors and administrators can create courses.",
-            )
-        return super().get_permissions()
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)

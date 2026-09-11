@@ -405,7 +405,7 @@ class Lesson(OrderedModel):
         if not (user and user.is_authenticated):
             return False
         from apps.accounts.constants import UserRole
-        if user.role in (UserRole.SYSTEM_ADMIN, UserRole.TUTOR, UserRole.BOARD_REVIEWER):
+        if user.role in (UserRole.SYSTEM_ADMIN, UserRole.TRAINING_ADMIN, UserRole.TUTOR, UserRole.BOARD_REVIEWER):
             return True
         if self.is_student_only:
             return user.role == UserRole.STUDENT

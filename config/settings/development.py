@@ -70,3 +70,13 @@ REST_FRAMEWORK = {  # noqa: F405
         "payment": "1000/hour",
     },
 }
+
+# --- Cache & Sessions: In-memory cache & database sessions for dev (no Redis required) ---
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "sifo-dev-cache",
+        "KEY_PREFIX": "sifo",
+    }
+}
+SESSION_ENGINE = "django.contrib.sessions.backends.db"

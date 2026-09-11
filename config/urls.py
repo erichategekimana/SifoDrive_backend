@@ -14,6 +14,7 @@ from drf_spectacular.views import (
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
+from rest_framework import permissions
 
 # ---------------------------------------------------------------------------
 # Admin Site Customization
@@ -39,8 +40,9 @@ api_v1_patterns = [
     # Live Classes (Google Meet scheduling)
     path("live-classes/", include("apps.live_classes.urls", namespace="live_classes")),
 
-    # Irembo Booking Concierge
-    path("irembo/", include("apps.irembo.urls", namespace="irembo")),
+    # Driving Test Booking Concierge (Irembo Registration)
+    path("booking/", include("apps.booking.urls", namespace="booking")),
+    path("irembo/", include("apps.booking.urls", namespace="irembo_legacy")),
 
     # Mobile Money Payments
     path("payments/", include("apps.payments.urls", namespace="payments")),
@@ -63,12 +65,12 @@ urlpatterns = [
     # API v1 — All application endpoints
     path("api/v1/", include((api_v1_patterns, "api_v1"))),
 
-    # API Schema (OpenAPI 3.0)
-    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    # API Schema (OpenAPI 3.0) — Publicly accessible for frontend / documentation
+    path("api/schema/", SpectacularAPIView.as_view(permission_classes=[permissions.AllowAny]), name="schema"),
 
     # Interactive API Docs
-    path("api/docs/swagger/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
-    path("api/docs/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
+    path("api/docs/swagger/", SpectacularSwaggerView.as_view(url_name="schema", permission_classes=[permissions.AllowAny]), name="swagger-ui"),
+    path("api/docs/redoc/", SpectacularRedocView.as_view(url_name="schema", permission_classes=[permissions.AllowAny]), name="redoc"),
 ]
 
 

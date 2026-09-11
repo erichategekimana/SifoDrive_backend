@@ -616,6 +616,54 @@ class NotificationService:
         )
 
     @classmethod
+    def send_live_class_scheduled(
+        cls,
+        user: User,
+        title: str,
+        class_time: str,
+        tutor_name: str,
+        live_class_id: Optional[str] = None,
+        language: str = "rw",
+    ) -> Notification:
+        context = {
+            "title": title,
+            "class_time": class_time,
+            "tutor_name": tutor_name,
+        }
+        action_url = f"/live-classes/{live_class_id}" if live_class_id else "/live-classes"
+        return cls.send_notification(
+            recipient=user,
+            notification_type=NotificationType.LIVE_CLASS_SCHEDULED,
+            channel=NotificationChannel.IN_APP,
+            context=context,
+            action_url=action_url,
+            metadata={"live_class_id": str(live_class_id) if live_class_id else None},
+            language=language,
+        )
+
+    @classmethod
+    def send_live_class_reminder(
+        cls,
+        user: User,
+        meet_link: str,
+        live_class_id: Optional[str] = None,
+        language: str = "rw",
+    ) -> Notification:
+        context = {
+            "meet_link": meet_link,
+        }
+        action_url = meet_link
+        return cls.send_notification(
+            recipient=user,
+            notification_type=NotificationType.LIVE_CLASS_REMINDER,
+            channel=NotificationChannel.SMS,
+            context=context,
+            action_url=action_url,
+            metadata={"live_class_id": str(live_class_id) if live_class_id else None},
+            language=language,
+        )
+
+    @classmethod
     def send_broadcast(
         cls,
         title: str,

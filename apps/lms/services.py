@@ -49,6 +49,7 @@ class ContentGateService:
             and user.is_authenticated
             and user.role in (
                 UserRole.TUTOR,
+                UserRole.TRAINING_ADMIN,
                 UserRole.BOARD_REVIEWER,
                 UserRole.SYSTEM_ADMIN,
             )
@@ -86,7 +87,7 @@ class ContentGateService:
         from .models import Course
 
         if user and user.is_authenticated and user.role in (
-            UserRole.TUTOR, UserRole.SYSTEM_ADMIN
+            UserRole.TUTOR, UserRole.TRAINING_ADMIN, UserRole.SYSTEM_ADMIN
         ):
             return Course.objects.all()
 
@@ -103,7 +104,7 @@ class ContentGateService:
         qs = course.modules.filter(is_deleted=False)
 
         if user and user.is_authenticated and user.role in (
-            UserRole.TUTOR, UserRole.SYSTEM_ADMIN
+            UserRole.TUTOR, UserRole.TRAINING_ADMIN, UserRole.SYSTEM_ADMIN
         ):
             return qs
 
@@ -123,7 +124,7 @@ class ContentGateService:
         if not (user and user.is_authenticated):
             return qs.filter(is_free_preview=True)
 
-        if user.role in (UserRole.TUTOR, UserRole.SYSTEM_ADMIN, UserRole.BOARD_REVIEWER):
+        if user.role in (UserRole.TUTOR, UserRole.TRAINING_ADMIN, UserRole.SYSTEM_ADMIN, UserRole.BOARD_REVIEWER):
             return qs
 
         if user.role == UserRole.STUDENT:

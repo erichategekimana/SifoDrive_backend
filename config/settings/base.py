@@ -28,7 +28,7 @@ env = environ.Env(
 )
 
 # Read .env file if it exists (silently skip in production containers)
-environ.Env.read_env(BASE_DIR / ".env")
+environ.Env.read_env(BASE_DIR / ".env", overwrite=True)
 
 
 # ---------------------------------------------------------------------------
@@ -73,7 +73,7 @@ LOCAL_APPS = [
     "apps.lms",
     "apps.examinations",
     "apps.live_classes",
-    "apps.irembo",
+    "apps.booking",
     "apps.payments",
     "apps.notifications",
     "apps.audit",
@@ -131,9 +131,7 @@ DATABASES = {
         "PORT": env("DB_PORT", default="5432"),
         "ATOMIC_REQUESTS": True,  # Wrap every request in a transaction
         "CONN_MAX_AGE": 60,
-        "OPTIONS": {
-            "options": "-c default_transaction_isolation=read committed",
-        },
+        "OPTIONS": {},
     }
 }
 
@@ -147,14 +145,14 @@ CACHES = {
         "LOCATION": env("REDIS_URL", default="redis://localhost:6379/0"),
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            "COMPRESSOR": "django_redis.compressor.zlib.ZlibCompressor",
+            "COMPRESSOR": "django_redis.compressors.zlib.ZlibCompressor",
             "IGNORE_EXCEPTIONS": True,
         },
         "KEY_PREFIX": "sifo",
         "TIMEOUT": 300,  # 5 minutes default
     }
 }
-SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_ENGINE = env("SESSION_ENGINE", default="django.contrib.sessions.backends.cached_db")
 SESSION_CACHE_ALIAS = "default"
 
 

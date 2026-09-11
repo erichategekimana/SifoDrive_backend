@@ -59,6 +59,12 @@ class IsTutor(HasRole):
     message = "Only tutors and facilitators may access this resource."
 
 
+class IsTrainingAdmin(HasRole):
+    """Allows access to Training Administrators only."""
+    allowed_roles = (UserRole.TRAINING_ADMIN,)
+    message = "Only training administrators may access this resource."
+
+
 class IsEnterpriseAdmin(HasRole):
     """Allows access to Driving School (Enterprise) Admins only."""
     allowed_roles = (UserRole.ENTERPRISE_ADMIN,)
@@ -91,22 +97,54 @@ class IsStudentOrTutor(HasRole):
     allowed_roles = (UserRole.STUDENT, UserRole.TUTOR)
 
 
-class IsStaff(HasRole):
-    """Tutors, Board Reviewers, and System Admins — internal staff."""
+class IsTutorOrTrainingAdmin(HasRole):
+    """Tutors, Training Admins, and System Admins — for quiz and curriculum management."""
     allowed_roles = (
         UserRole.TUTOR,
+        UserRole.TRAINING_ADMIN,
+        UserRole.SYSTEM_ADMIN,
+    )
+    message = "Only tutors and training administrators may perform this action."
+
+
+class IsTrainingAdminOrAbove(HasRole):
+    """Training Admins and System Admins — for full course/module/lesson lifecycle."""
+    allowed_roles = (
+        UserRole.TRAINING_ADMIN,
+        UserRole.SYSTEM_ADMIN,
+    )
+    message = "Training administrator or system administrator privileges are required."
+
+
+class IsStaff(HasRole):
+    """Tutors, Training Admins, Board Reviewers, and System Admins — internal staff."""
+    allowed_roles = (
+        UserRole.TUTOR,
+        UserRole.TRAINING_ADMIN,
         UserRole.BOARD_REVIEWER,
         UserRole.SYSTEM_ADMIN,
     )
 
 
 class IsAdminLevel(HasRole):
-    """Enterprise Admins, Board Reviewers, and System Admins."""
+    """Enterprise Admins, Training Admins, Board Reviewers, and System Admins."""
     allowed_roles = (
         UserRole.ENTERPRISE_ADMIN,
+        UserRole.TRAINING_ADMIN,
         UserRole.BOARD_REVIEWER,
         UserRole.SYSTEM_ADMIN,
     )
+
+
+class IsStudentOrStaff(HasRole):
+    """Students, Tutors, Training Admins, and System Admins (excludes guests)."""
+    allowed_roles = (
+        UserRole.STUDENT,
+        UserRole.TUTOR,
+        UserRole.TRAINING_ADMIN,
+        UserRole.SYSTEM_ADMIN,
+    )
+    message = "Enrolled student or staff privileges are required."
 
 
 class IsAnyAuthenticatedRole(HasRole):

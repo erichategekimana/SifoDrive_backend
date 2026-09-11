@@ -1,0 +1,2 @@
+# Default to local development dependencies (includes base.txt + dev/testing tools)
+-r requirements/development.txt

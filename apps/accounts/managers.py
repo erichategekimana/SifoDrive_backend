@@ -101,3 +101,23 @@ class CustomUserManager(BaseUserManager):
             raise ValueError(_("Superuser must have is_superuser=True."))
 
         return self._create_user(phone_number, password, **extra_fields)
+
+    def get_by_natural_key(self, username: str):
+        """
+        Allows staff and users to log in using:
+          - Any Rwandan phone format (e.g. 0780000001, +250780000001, 250780000001)
+          - Email address (case-insensitive)
+        """
+        if not username:
+            return self.none()
+
+        from apps.core.utils import normalize_phone_number
+
+        normalized = normalize_phone_number(str(username).strip())
+        if normalized:
+            return self.get(phone_number=normalized)
+
+        if "@" in str(username):
+            return self.get(email__iexact=str(username).strip())
+
+        return self.get(**{self.model.USERNAME_FIELD: str(username).strip()})
