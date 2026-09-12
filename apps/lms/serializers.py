@@ -48,9 +48,12 @@ class QuizQuestionListSerializer(serializers.ModelSerializer):
     class Meta:
         model = QuizQuestion
         fields = [
-            "id", "domain", "difficulty",
+            "id", "question_number", "domain", "difficulty",
             "question_text", "question_text_kinyarwanda",
             "option_a", "option_b", "option_c", "option_d",
+            "option_a_kinyarwanda", "option_b_kinyarwanda", "option_c_kinyarwanda", "option_d_kinyarwanda",
+            "image",
+            "option_a_image", "option_b_image", "option_c_image", "option_d_image",
             "road_sign",
         ]
         read_only_fields = ["id"]
@@ -65,11 +68,15 @@ class QuizQuestionDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = QuizQuestion
         fields = [
-            "id", "domain", "difficulty",
+            "id", "question_number", "domain", "difficulty",
             "question_text", "question_text_kinyarwanda",
             "option_a", "option_b", "option_c", "option_d",
+            "option_a_kinyarwanda", "option_b_kinyarwanda", "option_c_kinyarwanda", "option_d_kinyarwanda",
             "correct_option", "correct_text",
-            "explanation", "road_sign", "road_sign_detail",
+            "explanation", "explanation_kinyarwanda",
+            "image",
+            "option_a_image", "option_b_image", "option_c_image", "option_d_image",
+            "road_sign", "road_sign_detail",
             "is_active", "created_by",
             "created_at", "updated_at",
         ]
@@ -82,10 +89,13 @@ class QuizQuestionWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = QuizQuestion
         fields = [
-            "domain", "difficulty",
+            "question_number", "domain", "difficulty",
             "question_text", "question_text_kinyarwanda",
             "option_a", "option_b", "option_c", "option_d",
-            "correct_option", "explanation",
+            "option_a_kinyarwanda", "option_b_kinyarwanda", "option_c_kinyarwanda", "option_d_kinyarwanda",
+            "correct_option", "explanation", "explanation_kinyarwanda",
+            "image",
+            "option_a_image", "option_b_image", "option_c_image", "option_d_image",
             "road_sign", "is_active",
         ]
 

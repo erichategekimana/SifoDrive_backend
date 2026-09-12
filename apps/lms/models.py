@@ -484,6 +484,13 @@ class QuizQuestion(BaseModel):
     Guests cannot access quiz questions.
     """
 
+    question_number = models.PositiveIntegerField(
+        _("Question Number"),
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text=_("Official Rwanda Highway Code question reference number (1-433)."),
+    )
     domain = models.CharField(
         _("Domain"),
         max_length=20,
@@ -499,24 +506,69 @@ class QuizQuestion(BaseModel):
     )
     question_text = models.TextField(
         _("Question (English)"),
+        blank=True,
     )
     question_text_kinyarwanda = models.TextField(
         _("Question (Kinyarwanda)"),
         blank=True,
     )
-    option_a = models.CharField(_("Option A"), max_length=500)
-    option_b = models.CharField(_("Option B"), max_length=500)
-    option_c = models.CharField(_("Option C"), max_length=500)
-    option_d = models.CharField(_("Option D"), max_length=500)
+    option_a = models.CharField(_("Option A (English)"), max_length=500, blank=True)
+    option_b = models.CharField(_("Option B (English)"), max_length=500, blank=True)
+    option_c = models.CharField(_("Option C (English)"), max_length=500, blank=True)
+    option_d = models.CharField(_("Option D (English)"), max_length=500, blank=True)
+    option_a_kinyarwanda = models.CharField(_("Option A (Kinyarwanda)"), max_length=500, blank=True)
+    option_b_kinyarwanda = models.CharField(_("Option B (Kinyarwanda)"), max_length=500, blank=True)
+    option_c_kinyarwanda = models.CharField(_("Option C (Kinyarwanda)"), max_length=500, blank=True)
+    option_d_kinyarwanda = models.CharField(_("Option D (Kinyarwanda)"), max_length=500, blank=True)
     correct_option = models.CharField(
         _("Correct Option"),
         max_length=1,
         choices=CorrectOption.choices,
     )
     explanation = models.TextField(
-        _("Explanation"),
+        _("Explanation (English)"),
         blank=True,
         help_text=_("Shown after the student answers. Explains why the answer is correct."),
+    )
+    explanation_kinyarwanda = models.TextField(
+        _("Explanation (Kinyarwanda)"),
+        blank=True,
+        help_text=_("Ibisobanuro mu Kinyarwanda by'impamvu igisubizo ari cyo cy'ukuri."),
+    )
+    image = models.ImageField(
+        _("Diagram / Image"),
+        upload_to="lms/questions/images/",
+        null=True,
+        blank=True,
+        help_text=_("Road sign or intersection diagram associated with this question prompt."),
+    )
+    option_a_image = models.ImageField(
+        _("Option A Image"),
+        upload_to="lms/questions/options/",
+        null=True,
+        blank=True,
+        help_text=_("Image diagram for Option A if this question uses image-based choices."),
+    )
+    option_b_image = models.ImageField(
+        _("Option B Image"),
+        upload_to="lms/questions/options/",
+        null=True,
+        blank=True,
+        help_text=_("Image diagram for Option B if this question uses image-based choices."),
+    )
+    option_c_image = models.ImageField(
+        _("Option C Image"),
+        upload_to="lms/questions/options/",
+        null=True,
+        blank=True,
+        help_text=_("Image diagram for Option C if this question uses image-based choices."),
+    )
+    option_d_image = models.ImageField(
+        _("Option D Image"),
+        upload_to="lms/questions/options/",
+        null=True,
+        blank=True,
+        help_text=_("Image diagram for Option D if this question uses image-based choices."),
     )
     road_sign = models.ForeignKey(
         RoadSign,

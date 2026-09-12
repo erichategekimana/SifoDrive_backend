@@ -287,26 +287,35 @@ class RoadSignAdmin(admin.ModelAdmin):
 
 @admin.register(QuizQuestion)
 class QuizQuestionAdmin(admin.ModelAdmin):
-    list_display  = ["short_question", "domain", "difficulty", "correct_option", "is_active", "created_by"]
+    list_display  = ["question_number", "short_question", "domain", "difficulty", "correct_option", "has_image", "is_active", "created_by"]
     list_filter   = ["domain", "difficulty", "is_active"]
-    search_fields = ["question_text", "question_text_kinyarwanda"]
-    ordering = ["domain", "difficulty"]
-    readonly_fields = ["id", "created_by", "created_at", "updated_at"]
+    search_fields = ["question_number", "question_text_kinyarwanda", "question_text"]
+    ordering = ["question_number", "domain", "difficulty"]
+    readonly_fields = ["id", "created_by", "created_at", "updated_at", "image_preview", "option_images_preview"]
     autocomplete_fields = ["road_sign"]
     actions = ["activate_questions", "deactivate_questions"]
 
     fieldsets = (
-        (_("Question"), {
-            "fields": ("domain", "difficulty", "question_text", "question_text_kinyarwanda", "road_sign"),
+        (_("Question Reference"), {
+            "fields": ("question_number", "domain", "difficulty", "road_sign", "is_active"),
         }),
-        (_("Answer Options"), {
-            "fields": ("option_a", "option_b", "option_c", "option_d", "correct_option"),
+        (_("Question Prompts"), {
+            "fields": ("question_text_kinyarwanda", "question_text"),
         }),
-        (_("Explanation"), {
-            "fields": ("explanation",),
+        (_("Prompt Diagram"), {
+            "fields": ("image", "image_preview"),
         }),
-        (_("Status"), {
-            "fields": ("is_active",),
+        (_("Answer Options (Kinyarwanda)"), {
+            "fields": ("option_a_kinyarwanda", "option_b_kinyarwanda", "option_c_kinyarwanda", "option_d_kinyarwanda"),
+        }),
+        (_("Answer Options (English)"), {
+            "fields": ("option_a", "option_b", "option_c", "option_d"),
+        }),
+        (_("Image-based Answer Choices"), {
+            "fields": ("option_a_image", "option_b_image", "option_c_image", "option_d_image", "option_images_preview"),
+        }),
+        (_("Correct Answer & Explanation"), {
+            "fields": ("correct_option", "explanation_kinyarwanda", "explanation"),
         }),
         (_("System"), {
             "fields": ("id", "created_by", "created_at", "updated_at"),
@@ -321,7 +330,39 @@ class QuizQuestionAdmin(admin.ModelAdmin):
 
     @admin.display(description=_("Question"))
     def short_question(self, obj):
-        return obj.question_text[:80] + ("…" if len(obj.question_text) > 80 else "")
+        text = obj.question_text_kinyarwanda or obj.question_text or "—"
+        return text[:80] + ("…" if len(text) > 80 else "")
+
+    @admin.display(boolean=True, description=_("Diagram"))
+    def has_image(self, obj):
+        return bool(obj.image or obj.option_a_image)
+
+    @admin.display(description=_("Prompt Diagram"))
+    def image_preview(self, obj):
+        if obj.image:
+            return format_html(
+                '<img src="{}" style="max-height:160px; border-radius:6px; border:1px solid #e2e8f0;" />',
+                obj.image.url,
+            )
+        return "No prompt diagram"
+
+    @admin.display(description=_("Option Diagrams Preview"))
+    def option_images_preview(self, obj):
+        imgs = []
+        for opt in ['a', 'b', 'c', 'd']:
+            field = getattr(obj, f"option_{opt}_image")
+            if field:
+                imgs.append(
+                    format_html(
+                        '<div style="display:inline-block; margin-right:12px; text-align:center;">'
+                        '<span style="display:block; font-weight:bold; margin-bottom:4px;">Option {}</span>'
+                        '<img src="{}" style="max-height:90px; border-radius:4px; border:1px solid #cbd5e1; padding:2px;" />'
+                        '</div>',
+                        opt.upper(),
+                        field.url,
+                    )
+                )
+        return format_html("".join(imgs)) if imgs else "No option images"
 
     @admin.action(description=_("✓ Activate selected questions"))
     def activate_questions(self, request, queryset):
