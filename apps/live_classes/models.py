@@ -58,7 +58,12 @@ class Cohort(BaseModel):
         db_index=True,
         help_text=_("Unique identifier, e.g. COHORT-2026-SEP-AM"),
     )
-    description = models.TextField(_("Description"), blank=True)
+    description = models.CharField(
+        _("Description"),
+        max_length=165,
+        blank=True,
+        help_text=_("Cohort summary (max 165 characters)"),
+    )
     assigned_tutors = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
         related_name="assigned_cohorts",

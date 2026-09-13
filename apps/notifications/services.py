@@ -227,7 +227,7 @@ class SMSDispatcherService:
         phone_number: str,
         message: str,
         message_type: str = NotificationType.GENERAL,
-        sender_id: str = "SIFO_DRIVE",
+        sender_id: Optional[str] = None,
         parent_notification: Optional[Notification] = None,
         provider_name: Optional[str] = None,
     ) -> SMSDeliveryResult:
@@ -245,7 +245,7 @@ class SMSDispatcherService:
             )
 
         provider: BaseSMSProvider = get_sms_provider(provider_name)
-        active_sender = sender_id or getattr(settings, "SMS_SENDER_ID", "SIFO_DRIVE")
+        active_sender = sender_id or getattr(settings, "SMS_SENDER_ID", "PindoTest")
 
         # 1. Create PENDING audit log record
         sms_log = SMSNotification.objects.create(

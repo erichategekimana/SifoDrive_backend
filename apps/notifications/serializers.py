@@ -148,22 +148,35 @@ class NotificationTemplateSerializer(serializers.ModelSerializer):
 
 
 class BroadcastNotificationSerializer(serializers.Serializer):
-    """Payload validation for administrative mass broadcast announcements."""
+    """Payload validation for administrative mass broadcast announcements and SMS campaigns."""
 
-    title = serializers.CharField(max_length=255)
-    body = serializers.CharField()
+    title = serializers.CharField(max_length=255, required=False, default="Sifo Drive Announcement")
+    body = serializers.CharField(required=False, allow_blank=True)
+    message = serializers.CharField(required=False, allow_blank=True)
     title_rw = serializers.CharField(max_length=255, required=False, allow_blank=True)
     body_rw = serializers.CharField(required=False, allow_blank=True)
+    audience = serializers.CharField(required=False, default="ALL")
+    cohort_id = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     target_role = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     channel = serializers.ChoiceField(
         choices=NotificationChannel.choices,
-        default=NotificationChannel.IN_APP,
+        default=NotificationChannel.SMS,
     )
     priority = serializers.ChoiceField(
         choices=NotificationPriority.choices,
         default=NotificationPriority.NORMAL,
     )
     action_url = serializers.CharField(max_length=500, required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        content = attrs.get("message") or attrs.get("body")
+        if not content or not content.strip():
+            raise serializers.ValidationError({"message": "Message body is required."})
+        attrs["body"] = content.strip()
+        attrs["message"] = content.strip()
+        if not attrs.get("title"):
+            attrs["title"] = "Sifo Drive Announcement"
+        return attrs
 
 
 class DirectSMSRequestSerializer(serializers.Serializer):

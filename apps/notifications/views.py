@@ -16,8 +16,10 @@ from apps.core.pagination import StandardResultsPagination
 from apps.core.permissions import IsAdminLevel, IsSystemAdmin
 from apps.notifications.models import (
     Notification,
+    NotificationChannel,
     NotificationPreference,
     NotificationTemplate,
+    NotificationType,
     SMSNotification,
 )
 from apps.notifications.serializers import (
@@ -227,6 +229,7 @@ class AdminTemplateDetailView(SuccessResponseMixin, generics.RetrieveUpdateDestr
 class AdminBroadcastView(SuccessResponseMixin, APIView):
     """
     Administrative mass announcement dispatcher.
+    Supports role-based, cohort-based, or platform-wide broadcasts via SMS and In-App.
     Requires System Administrator privileges.
     """
     permission_classes = [IsAuthenticated, IsSystemAdmin]
@@ -236,26 +239,59 @@ class AdminBroadcastView(SuccessResponseMixin, APIView):
         serializer.is_valid(raise_exception=True)
 
         data = serializer.validated_data
-        queued_count = NotificationService.send_broadcast(
-            title=data["title"],
-            body=data["body"],
-            title_rw=data.get("title_rw", ""),
-            body_rw=data.get("body_rw", ""),
-            target_role=data.get("target_role"),
-            channel=data["channel"],
-            priority=data["priority"],
-            action_url=data.get("action_url", ""),
-        )
+        audience = data.get("audience", "ALL").upper()
+        cohort_id = data.get("cohort_id")
+        target_role = data.get("target_role")
+        channel = data.get("channel", NotificationChannel.SMS)
+
+        from apps.accounts.models import User
+        from apps.notifications.tasks import send_bulk_notification_task
+
+        if audience == "COHORT" and cohort_id:
+            from apps.live_classes.models import Cohort
+            try:
+                cohort = Cohort.objects.get(id=cohort_id)
+                users = cohort.students.filter(is_active=True)
+            except (Cohort.DoesNotExist, Exception):
+                users = User.objects.none()
+        elif audience == "STUDENTS" or target_role == "STUDENT":
+            users = User.objects.filter(role="STUDENT", is_active=True)
+        elif audience == "GUESTS" or target_role == "GUEST":
+            users = User.objects.filter(role="GUEST", is_active=True)
+        elif audience == "TUTORS" or target_role == "TUTOR":
+            users = User.objects.filter(role="TUTOR", is_active=True)
+        elif target_role:
+            users = User.objects.filter(role=target_role, is_active=True)
+        else:
+            users = User.objects.filter(is_active=True)
+
+        if channel == NotificationChannel.SMS:
+            users = users.exclude(phone_number__isnull=True).exclude(phone_number="")
+
+        recipient_ids = list(users.values_list("id", flat=True))
+        recipient_count = len(recipient_ids)
+
+        if recipient_count > 0:
+            send_bulk_notification_task.delay(
+                recipient_ids=[str(uid) for uid in recipient_ids],
+                title=data["title"],
+                body=data["body"],
+                title_rw=data.get("title_rw", ""),
+                body_rw=data.get("body_rw", ""),
+                channel=channel,
+                priority=data["priority"],
+                action_url=data.get("action_url", ""),
+            )
 
         return self.accepted_response(
-            data={"queued_recipients": queued_count},
-            message=f"Broadcast queued for {queued_count} recipients.",
+            data={"queued_recipients": recipient_count, "audience": audience, "channel": channel},
+            message=f"Broadcast queued for {recipient_count} recipients.",
         )
 
 
 class AdminTestSMSView(SuccessResponseMixin, APIView):
     """
-    Development & operational test endpoint to verify SMS gateway connectivity.
+    Direct single SMS dispatch endpoint to send messages via Rwanda gateway (Pindo).
     Restricted to System Administrators.
     """
     permission_classes = [IsAuthenticated, IsSystemAdmin]
@@ -268,7 +304,7 @@ class AdminTestSMSView(SuccessResponseMixin, APIView):
         result = SMSDispatcherService.send_sms(
             phone_number=data["phone_number"],
             message=data["message"],
-            message_type=data["message_type"],
+            message_type=data.get("message_type", NotificationType.GENERAL),
         )
 
         return self.success_response(
@@ -279,6 +315,61 @@ class AdminTestSMSView(SuccessResponseMixin, APIView):
                 "error_message": result.error_message,
                 "raw_response": result.raw_response,
             },
-            message="Test SMS executed.",
-            status_code=status.HTTP_200_OK if result.success else status.HTTP_502_BAD_GATEWAY,
+            message="SMS message dispatched successfully." if result.success else f"SMS gateway returned error: {result.error_message}",
+            status_code=status.HTTP_200_OK if result.success else status.HTTP_400_BAD_REQUEST,
+        )
+
+
+class AdminGatewayStatusView(SuccessResponseMixin, APIView):
+    """
+    Operational diagnostic endpoint to check Pindo / SMS gateway connectivity.
+    Restricted to Admin Level.
+    """
+    permission_classes = [IsAuthenticated, IsAdminLevel]
+
+    def get(self, request, *args, **kwargs):
+        from apps.notifications.providers import get_sms_provider
+        provider = get_sms_provider()
+        if hasattr(provider, "check_gateway_connectivity"):
+            diag = provider.check_gateway_connectivity()
+        else:
+            diag = {
+                "connected": True,
+                "provider": provider.get_provider_name(),
+                "endpoint": getattr(settings, "SMS_GATEWAY_URL", ""),
+                "sender_id": getattr(settings, "SMS_SENDER_ID", ""),
+            }
+        return self.success_response(data=diag, message="SMS Gateway status retrieved.")
+
+
+class AdminSMSRetryView(SuccessResponseMixin, APIView):
+    """
+    Retry sending a previously failed or pending SMS from the audit log.
+    Restricted to System Administrators.
+    """
+    permission_classes = [IsAuthenticated, IsSystemAdmin]
+
+    def post(self, request, pk, *args, **kwargs):
+        try:
+            sms_log = SMSNotification.objects.get(id=pk)
+        except SMSNotification.DoesNotExist:
+            return self.error_response(code="NOT_FOUND", message="SMS log record not found.", status_code=status.HTTP_404_NOT_FOUND)
+
+        result = SMSDispatcherService.send_sms(
+            phone_number=sms_log.recipient_phone,
+            message=sms_log.message_body,
+            message_type=sms_log.message_type,
+            parent_notification=sms_log.notification,
+        )
+
+        sms_log.retry_count += 1
+        if result.success:
+            sms_log.mark_sent(result.message_id or "", result.raw_response)
+        else:
+            sms_log.mark_failed(result.error_message or "Retry failed", result.raw_response)
+
+        return self.success_response(
+            data=SMSNotificationSerializer(sms_log).data,
+            message="SMS retry dispatched." if result.success else f"SMS retry failed: {result.error_message}",
+            status_code=status.HTTP_200_OK if result.success else status.HTTP_400_BAD_REQUEST,
         )

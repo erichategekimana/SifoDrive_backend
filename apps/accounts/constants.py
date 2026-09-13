@@ -69,6 +69,7 @@ class AccountStatus(models.TextChoices):
     PENDING_VERIFICATION = "PENDING_VERIFICATION", _("Pending Phone Verification")
     SUSPENDED = "SUSPENDED", _("Suspended")
     DEACTIVATED = "DEACTIVATED", _("Deactivated")
+    BLACKLISTED = "BLACKLISTED", _("Blacklisted")
 
 
 class LicenseCategory(models.TextChoices):

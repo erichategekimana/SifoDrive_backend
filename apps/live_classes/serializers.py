@@ -48,6 +48,7 @@ class CohortListSerializer(serializers.ModelSerializer):
             "id",
             "name",
             "code",
+            "description",
             "start_date",
             "end_date",
             "max_capacity",
@@ -89,6 +90,9 @@ class CohortDetailSerializer(serializers.ModelSerializer):
 
 class CohortCreateUpdateSerializer(serializers.ModelSerializer):
     """Serializer for System Admin and Training Admin to create or modify cohorts."""
+    code = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    description = serializers.CharField(max_length=165, required=False, allow_blank=True)
+    end_date = serializers.DateField(required=True)
 
     class Meta:
         model = Cohort
@@ -108,6 +112,17 @@ class CohortCreateUpdateSerializer(serializers.ModelSerializer):
         end = attrs.get("end_date") or (self.instance.end_date if self.instance else None)
         if start and end and end < start:
             raise serializers.ValidationError({"end_date": "End date cannot precede start date."})
+
+        desc = attrs.get("description", "")
+        if desc and len(desc) > 165:
+            raise serializers.ValidationError({"description": "Description cannot exceed 165 characters."})
+
+        if not attrs.get("code") and not (self.instance and self.instance.code):
+            import uuid
+            from django.utils import timezone
+            name_slug = attrs.get("name", "COHORT").strip().upper().replace(" ", "-")[:12]
+            attrs["code"] = f"{name_slug}-{timezone.now().strftime('%y%m')}-{uuid.uuid4().hex[:4].upper()}"
+
         return attrs
 
 
@@ -368,3 +383,36 @@ class StudentAttendanceSummarySerializer(serializers.Serializer):
     excused_count = serializers.IntegerField()
     watched_recording_count = serializers.IntegerField()
     total_attended = serializers.IntegerField()
+
+
+class LiveClassRecurringScheduleSerializer(serializers.Serializer):
+    """Payload for scheduling recurring live classes for a given day and period (months)."""
+
+    title = serializers.CharField(max_length=200)
+    topic = serializers.CharField(max_length=300, required=False, allow_blank=True, default="")
+    cohort = serializers.PrimaryKeyRelatedField(
+        queryset=Cohort.objects.all(),
+        required=False,
+        allow_null=True,
+        default=None,
+    )
+    tutor = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        required=False,
+        allow_null=True,
+        default=None,
+    )
+    day_of_week = serializers.IntegerField(min_value=0, max_value=6)  # 0=Monday ... 6=Sunday
+    start_time = serializers.TimeField()
+    end_time = serializers.TimeField()
+    start_date = serializers.DateField()
+    period_months = serializers.IntegerField(min_value=1, max_value=12, default=3)
+    google_meet_url = serializers.CharField(required=False, allow_blank=True, default="")
+    is_published = serializers.BooleanField(default=True)
+    notes = serializers.CharField(required=False, allow_blank=True, default="")
+
+    def validate(self, attrs):
+        if attrs["start_time"] >= attrs["end_time"]:
+            raise serializers.ValidationError({"end_time": "Start time must be strictly before end time."})
+        return attrs
+

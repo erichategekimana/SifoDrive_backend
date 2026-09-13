@@ -36,6 +36,7 @@ api_v1_patterns = [
 
     # Examination Engine
     path("exams/", include("apps.examinations.urls", namespace="examinations")),
+    path("examinations/", include("apps.examinations.urls", namespace="examinations_alias")),
 
     # Live Classes (Google Meet scheduling)
     path("live-classes/", include("apps.live_classes.urls", namespace="live_classes")),

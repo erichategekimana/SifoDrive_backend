@@ -350,11 +350,11 @@ PII_ENCRYPTION_KEY = env("PII_ENCRYPTION_KEY", default="")
 SMS_PROVIDER = env("SMS_PROVIDER", default="console")  # console | pindo | africas_talking | http_gateway
 SMS_GATEWAY_URL = env("SMS_GATEWAY_URL", default="")
 SMS_API_KEY = env("SMS_API_KEY", default="")
-SMS_SENDER_ID = env("SMS_SENDER_ID", default="SIFO_DRIVE")
+SMS_SENDER_ID = env("SMS_SENDER_ID", default="PindoTest")
 OTP_EXPIRY_MINUTES = env.int("OTP_EXPIRY_MINUTES", default=10)
 
-# Local Rwanda Gateway (Pindo)
-PINDO_API_TOKEN = env("PINDO_API_TOKEN", default="")
+# Local Rwanda Gateway (Pindo: https://api.pindo.io)
+PINDO_API_TOKEN = env("PINDO_API_TOKEN", default="") or env("SMS_API_KEY", default="")
 
 # Africa's Talking Gateway
 AFRICAS_TALKING_USERNAME = env("AFRICAS_TALKING_USERNAME", default="")

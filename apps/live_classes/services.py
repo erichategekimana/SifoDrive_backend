@@ -224,6 +224,81 @@ class LiveClassService:
 
     @classmethod
     @transaction.atomic
+    def schedule_recurring_classes(
+        cls,
+        title: str,
+        start_date: date,
+        day_of_week: int,
+        start_time: time,
+        end_time: time,
+        period_months: int = 3,
+        google_meet_url: str = "",
+        cohort: Optional[Cohort] = None,
+        tutor: Optional[User] = None,
+        topic: str = "",
+        is_published: bool = True,
+        notes: str = "",
+        created_by: Optional[User] = None,
+    ) -> List[LiveClass]:
+        """
+        Schedule recurring live classes for a specific day of the week over a given period in months.
+        E.g. each Tuesday 2pm for 3 months.
+        """
+        import calendar
+        from datetime import timedelta
+
+        if start_time >= end_time:
+            raise ValidationError("Start time must be strictly before end time.")
+
+        # Calculate approximate end date based on period_months
+        year = start_date.year
+        month = start_date.month + period_months
+        while month > 12:
+            year += 1
+            month -= 12
+        max_day = calendar.monthrange(year, month)[1]
+        day = min(start_date.day, max_day)
+        period_end_date = date(year, month, day)
+
+        # Advance to first occurrence of day_of_week
+        cur = start_date
+        days_ahead = (day_of_week - cur.weekday()) % 7
+        cur = cur + timedelta(days=days_ahead)
+
+        if not google_meet_url:
+            meet_slug = f"sifo-{title.lower()[:8].strip().replace(' ', '-')}-{calendar.day_abbr[day_of_week].lower()}"
+            google_meet_url = f"https://meet.google.com/{meet_slug}"
+
+        created_sessions = []
+        while cur <= period_end_date:
+            session = LiveClass.objects.create(
+                title=title.strip(),
+                topic=topic.strip(),
+                cohort=cohort,
+                tutor=tutor,
+                scheduled_date=cur,
+                start_time=start_time,
+                end_time=end_time,
+                google_meet_url=google_meet_url.strip(),
+                status=LiveClassStatus.SCHEDULED,
+                is_published=is_published,
+                notes=notes.strip(),
+                created_by=created_by,
+            )
+            created_sessions.append(session)
+            cur += timedelta(days=7)
+
+        logger.info(
+            "Scheduled %d recurring classes for '%s' (Day %d, %d months)",
+            len(created_sessions),
+            title,
+            day_of_week,
+            period_months,
+        )
+        return created_sessions
+
+    @classmethod
+    @transaction.atomic
     def reschedule_class(
         cls,
         live_class: LiveClass,

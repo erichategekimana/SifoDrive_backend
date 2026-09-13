@@ -41,8 +41,14 @@ from rest_framework_simplejwt.views import TokenBlacklistView, TokenRefreshView
 from .views import (
     AcceptPrivacyPolicyView,
     AcceptTermsOfServiceView,
+    AdminDashboardStatsView,
+    AdminUserCreateView,
+    AdminUserDetailView,
+    AdminUserRoleUpdateView,
+    AdminUserStatusUpdateView,
     GuestRegistrationView,
     GuestUpgradeView,
+    LoginView,
     OTPRequestView,
     OTPVerifyView,
     StudentProfileView,
@@ -59,6 +65,11 @@ urlpatterns = [
     # -------------------------------------------------------------------------
     path("register/guest/", GuestRegistrationView.as_view(), name="register-guest"),
     path("register/student/", StudentRegistrationView.as_view(), name="register-student"),
+
+    # -------------------------------------------------------------------------
+    # Authentication (Password Login — No OTP)
+    # -------------------------------------------------------------------------
+    path("login/", LoginView.as_view(), name="login"),
 
     # -------------------------------------------------------------------------
     # Account Upgrade (Guest → Student)
@@ -93,4 +104,9 @@ urlpatterns = [
     # Admin
     # -------------------------------------------------------------------------
     path("users/", UserListView.as_view(), name="user-list"),
+    path("users/create/", AdminUserCreateView.as_view(), name="admin-user-create"),
+    path("users/<uuid:user_id>/", AdminUserDetailView.as_view(), name="admin-user-detail"),
+    path("users/<uuid:user_id>/role/", AdminUserRoleUpdateView.as_view(), name="admin-user-role"),
+    path("users/<uuid:user_id>/status/", AdminUserStatusUpdateView.as_view(), name="admin-user-status"),
+    path("admin/stats/", AdminDashboardStatsView.as_view(), name="admin-stats"),
 ]

@@ -19,10 +19,12 @@ from django.utils import timezone
 
 from apps.core.exceptions import (
     AccountSuspendedException,
+    AuthenticationFailedException,
     OTPExpiredException,
     OTPInvalidException,
     OTPRateLimitException,
     PermissionDeniedException,
+    SifoDriveException,
     UserNotFoundException,
 )
 from apps.core.utils import generate_numeric_otp, generate_student_id, normalize_phone_number
@@ -58,6 +60,37 @@ class AuthService:
 
     OTP_LENGTH = 6
     MAX_ATTEMPTS = 5
+
+    @classmethod
+    def authenticate_by_password(cls, phone_number: str, password: str) -> User:
+        """
+        Authenticate a user using phone number and password (no OTP required for login).
+        Applicable to all users (SYSTEM_ADMIN, TUTOR, STUDENT, GUEST).
+        """
+        normalized = normalize_phone_number(phone_number)
+        if not normalized:
+            raise AuthenticationFailedException("Invalid phone number or password.")
+
+        try:
+            user = User.objects.get(phone_number=normalized)
+        except User.DoesNotExist:
+            raise AuthenticationFailedException("Invalid phone number or password.")
+
+        if not user.check_password(password):
+            raise AuthenticationFailedException("Invalid phone number or password.")
+
+        if user.status == AccountStatus.SUSPENDED:
+            raise AccountSuspendedException("Your account has been suspended. Please contact support.")
+
+        if user.status == AccountStatus.PENDING_VERIFICATION:
+            raise SifoDriveException(
+                "Account is pending verification. Please verify your phone number with the OTP received during registration.",
+                code="account_pending_verification",
+            )
+
+        user.last_login = timezone.now()
+        user.save(update_fields=["last_login"])
+        return user
 
     @classmethod
     def request_otp(cls, phone_number: str, purpose: str = "LOGIN") -> OTPVerification:

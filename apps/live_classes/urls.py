@@ -20,6 +20,7 @@ from .views import (
     LiveClassDetailView,
     LiveClassEndView,
     LiveClassListCreateView,
+    LiveClassRecurringScheduleView,
     LiveClassRescheduleView,
     LiveClassStartView,
     MyAttendanceSummaryView,
@@ -38,6 +39,7 @@ urlpatterns = [
     # Live Classes
     path("", LiveClassListCreateView.as_view(), name="class-list-create-root"),
     path("classes/", LiveClassListCreateView.as_view(), name="class-list-create"),
+    path("classes/recurring/", LiveClassRecurringScheduleView.as_view(), name="class-recurring-schedule"),
     path("classes/<uuid:pk>/", LiveClassDetailView.as_view(), name="class-detail"),
     path("classes/<uuid:pk>/reschedule/", LiveClassRescheduleView.as_view(), name="class-reschedule"),
     path("classes/<uuid:pk>/start/", LiveClassStartView.as_view(), name="class-start"),

@@ -56,9 +56,14 @@ from apps.core.permissions import IsSystemAdmin, IsSameUserOrAdmin
 from .serializers import (
     AcceptPrivacyPolicySerializer,
     AcceptTermsOfServiceSerializer,
+    AdminCreateUserSerializer,
+    AdminUserDetailSerializer,
     AdminUserListSerializer,
+    AdminUserRoleUpdateSerializer,
+    AdminUserStatusUpdateSerializer,
     GuestRegistrationSerializer,
     GuestUpgradeSerializer,
+    LoginSerializer,
     OTPRequestSerializer,
     OTPVerifySerializer,
     StudentProfileSerializer,
@@ -237,6 +242,36 @@ class GuestUpgradeView(SuccessResponseMixin, APIView):
                 "Your account has been upgraded to Student. "
                 "Please complete your enrollment (payment, profile details)."
             ),
+        )
+
+
+# ---------------------------------------------------------------------------
+# Password Login Flow (No OTP Required)
+# ---------------------------------------------------------------------------
+
+class LoginView(SuccessResponseMixin, APIView):
+    """
+    POST /api/v1/auth/login/
+
+    Authenticate a user with phone number and password.
+    Returns JWT token pair + user summary envelope on success.
+    No OTP is required for login.
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        serializer = LoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = AuthService.authenticate_by_password(
+            phone_number=serializer.validated_data["phone_number"],
+            password=serializer.validated_data["password"],
+        )
+
+        return self.success_response(
+            data=_build_token_response(user),
+            message="Login successful.",
         )
 
 
@@ -446,3 +481,175 @@ class UserListView(SuccessResponseMixin, generics.ListAPIView):
 
     def get_queryset(self):
         return User.objects.all().select_related("assigned_tutor")
+
+
+class AdminDashboardStatsView(SuccessResponseMixin, APIView):
+    """
+    GET /api/v1/auth/admin/stats/
+
+    Command Center basic platform metrics for System Admin:
+    - total_registered_users
+    - total_booking_orders
+    - enrolled_students
+    - total_graduated_students
+    - lms_courses
+    """
+
+    permission_classes = [IsSystemAdmin]
+
+    def get(self, request, *args, **kwargs):
+        from apps.accounts.constants import UserRole
+        from apps.accounts.models import User
+        from apps.booking.models import BookingApplication, BookingState
+        from apps.examinations.models import ExamSession
+        from apps.lms.models import Course
+
+        total_registered_users = User.objects.count()
+        enrolled_students = User.objects.filter(role=UserRole.STUDENT).count()
+        total_booking_orders = BookingApplication.objects.count()
+        lms_courses = Course.objects.filter(is_deleted=False).count()
+
+        # Graduated students: passed official exam or completed driving test booking
+        graduated_from_exams = ExamSession.objects.filter(passed=True).values("student").distinct().count()
+        completed_bookings = BookingApplication.objects.filter(state=BookingState.COMPLETED).values("applicant").distinct().count()
+        total_graduated_students = max(graduated_from_exams, completed_bookings)
+
+        return self.success_response(
+            data={
+                "total_registered_users": total_registered_users,
+                "total_booking_orders": total_booking_orders,
+                "enrolled_students": enrolled_students,
+                "total_graduated_students": total_graduated_students,
+                "lms_courses": lms_courses,
+            }
+        )
+
+
+class AdminUserCreateView(SuccessResponseMixin, generics.CreateAPIView):
+    """
+    POST /api/v1/auth/users/create/
+
+    System Admin only. Creates accounts for other roles (TUTOR, ENTERPRISE_ADMIN, etc.).
+    STRICT PRIVILEGE BOUNDARY: Cannot create another SYSTEM_ADMIN.
+    """
+
+    permission_classes = [IsSystemAdmin]
+    serializer_class = AdminCreateUserSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return self.success_response(
+            data=AdminUserDetailSerializer(user).data,
+            message=f"Account created successfully for {user.full_name} ({user.role}).",
+            status_code=status.HTTP_201_CREATED,
+        )
+
+
+class AdminUserDetailView(SuccessResponseMixin, generics.RetrieveAPIView):
+    """
+    GET /api/v1/auth/users/<uuid:user_id>/
+
+    System Admin only — inspect user profile, credentials metadata, and consent status.
+    """
+
+    permission_classes = [IsSystemAdmin]
+    serializer_class = AdminUserDetailSerializer
+    queryset = User.objects.all().select_related("assigned_tutor")
+    lookup_field = "id"
+    lookup_url_kwarg = "user_id"
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        return self.success_response(data=self.get_serializer(instance).data)
+
+
+class AdminUserRoleUpdateView(SuccessResponseMixin, APIView):
+    """
+    POST /api/v1/auth/users/<uuid:user_id>/role/
+
+    System Admin only — updates user's role.
+    STRICT PRIVILEGE BOUNDARY:
+    - Cannot promote anyone to SYSTEM_ADMIN.
+    - Cannot alter role of existing SYSTEM_ADMIN accounts.
+    """
+
+    permission_classes = [IsSystemAdmin]
+
+    def post(self, request, user_id, *args, **kwargs):
+        from rest_framework.exceptions import ValidationError, NotFound
+
+        try:
+            target_user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            raise NotFound("User not found.")
+
+        if target_user.role == UserRole.SYSTEM_ADMIN:
+            raise ValidationError("Role of SYSTEM_ADMIN accounts cannot be modified via portal.")
+
+        serializer = AdminUserRoleUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        new_role = serializer.validated_data["role"]
+
+        user = UserService.promote_to_role(
+            user=target_user,
+            new_role=new_role,
+            promoted_by=request.user,
+        )
+
+        return self.success_response(
+            data=AdminUserDetailSerializer(user).data,
+            message=f"User role updated to {user.role}.",
+        )
+
+
+class AdminUserStatusUpdateView(SuccessResponseMixin, APIView):
+    """
+    POST /api/v1/auth/users/<uuid:user_id>/status/
+
+    System Admin only — activate, deactivate, suspend, or blacklist user account.
+    STRICT PRIVILEGE BOUNDARY:
+    - Cannot deactivate, suspend, or blacklist a SYSTEM_ADMIN account.
+    """
+
+    permission_classes = [IsSystemAdmin]
+
+    def post(self, request, user_id, *args, **kwargs):
+        from rest_framework.exceptions import ValidationError, NotFound
+
+        try:
+            target_user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            raise NotFound("User not found.")
+
+        if target_user.role == UserRole.SYSTEM_ADMIN and target_user != request.user:
+            raise ValidationError("Status of other SYSTEM_ADMIN accounts cannot be altered.")
+
+        serializer = AdminUserStatusUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        new_status = serializer.validated_data["status"]
+        reason = serializer.validated_data.get("reason", "")
+
+        if new_status == AccountStatus.ACTIVE:
+            target_user.activate()
+        elif new_status == AccountStatus.DEACTIVATED:
+            target_user.deactivate()
+        elif new_status == AccountStatus.SUSPENDED:
+            target_user.suspend()
+        elif new_status == AccountStatus.BLACKLISTED:
+            target_user.blacklist()
+
+        logger.info(
+            "User status changed | target=%s status=%s reason=%s by=%s",
+            str(target_user.id)[:8],
+            new_status,
+            reason,
+            str(request.user.id)[:8],
+        )
+
+        return self.success_response(
+            data=AdminUserDetailSerializer(target_user).data,
+            message=f"User account status changed to {target_user.status}.",
+        )
+

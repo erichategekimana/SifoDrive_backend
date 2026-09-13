@@ -128,8 +128,28 @@ def send_bulk_notification_task(
             )
             for user in users
         ]
-        Notification.objects.bulk_create(notifications_to_create)
-        logger.info("Created batch of %d broadcast notifications", len(notifications_to_create))
+        created_notifications = Notification.objects.bulk_create(notifications_to_create)
+        logger.info("Created batch of %d broadcast notifications", len(created_notifications))
+
+        if channel == "SMS":
+            from apps.notifications.services import SMSDispatcherService
+            for notif in created_notifications:
+                if notif.recipient_phone:
+                    try:
+                        res = SMSDispatcherService.send_sms(
+                            phone_number=notif.recipient_phone,
+                            message=notif.body,
+                            message_type="GENERAL",
+                            parent_notification=notif,
+                        )
+                        if res.success:
+                            notif.status = NotificationStatus.SENT
+                            notif.sent_at = timezone.now()
+                        else:
+                            notif.status = NotificationStatus.FAILED
+                        notif.save(update_fields=["status", "sent_at", "updated_at"])
+                    except Exception as exc:
+                        logger.error("Failed sending SMS to %s: %s", notif.recipient_phone, exc)
 
 
 @shared_task(name="notifications.cleanup_old_sms_logs")

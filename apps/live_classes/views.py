@@ -50,6 +50,7 @@ from .serializers import (
     LiveClassDetailSerializer,
     LiveClassEndSessionSerializer,
     LiveClassListSerializer,
+    LiveClassRecurringScheduleSerializer,
     LiveClassRescheduleSerializer,
     StudentAttendanceSummarySerializer,
 )
@@ -283,6 +284,27 @@ class LiveClassListCreateView(SuccessResponseMixin, generics.ListCreateAPIView):
             created_by=self.request.user,
         )
         serializer.instance = live_class
+
+
+class LiveClassRecurringScheduleView(SuccessResponseMixin, APIView):
+    """
+    POST: Schedule recurring live classes across a period (e.g. each Tuesday 2pm for 3 months).
+    Restricted to Training Admin & System Admin.
+    """
+
+    permission_classes = [IsTrainingAdminOrAbove]
+
+    def post(self, request, *args, **kwargs):
+        serializer = LiveClassRecurringScheduleSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        created_classes = LiveClassService.schedule_recurring_classes(
+            **serializer.validated_data,
+            created_by=request.user,
+        )
+        return self.success_response(
+            data=LiveClassListSerializer(created_classes, many=True).data,
+            message=f"Successfully scheduled {len(created_classes)} recurring live classes.",
+        )
 
 
 class LiveClassDetailView(SuccessResponseMixin, generics.RetrieveUpdateDestroyAPIView):

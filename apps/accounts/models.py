@@ -251,6 +251,14 @@ class User(AbstractBaseUser, PermissionsMixin, UUIDModel, TimeStampedModel):
     def is_suspended(self) -> bool:
         return self.status == AccountStatus.SUSPENDED
 
+    @property
+    def is_deactivated(self) -> bool:
+        return self.status == AccountStatus.DEACTIVATED
+
+    @property
+    def is_blacklisted(self) -> bool:
+        return self.status == AccountStatus.BLACKLISTED
+
     # --- PII Encryption Helpers ---
 
     def set_national_id(self, plaintext_id: str) -> None:
@@ -301,14 +309,28 @@ class User(AbstractBaseUser, PermissionsMixin, UUIDModel, TimeStampedModel):
     # --- Account Lifecycle ---
 
     def activate(self) -> None:
-        """Activate account after phone OTP verification."""
+        """Activate account."""
         self.status = AccountStatus.ACTIVE
-        self.save(update_fields=["status"])
+        self.is_active = True
+        self.save(update_fields=["status", "is_active"])
+
+    def deactivate(self) -> None:
+        """Deactivate account."""
+        self.status = AccountStatus.DEACTIVATED
+        self.is_active = False
+        self.save(update_fields=["status", "is_active"])
 
     def suspend(self) -> None:
         """Suspend account for policy violations."""
         self.status = AccountStatus.SUSPENDED
-        self.save(update_fields=["status"])
+        self.is_active = False
+        self.save(update_fields=["status", "is_active"])
+
+    def blacklist(self) -> None:
+        """Blacklist account permanently."""
+        self.status = AccountStatus.BLACKLISTED
+        self.is_active = False
+        self.save(update_fields=["status", "is_active"])
 
 
 # ---------------------------------------------------------------------------
