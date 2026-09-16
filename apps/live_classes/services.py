@@ -151,6 +151,48 @@ class CohortService:
         """Return all active cohorts assigned to this tutor."""
         return user.assigned_cohorts.filter(is_active=True)
 
+    @classmethod
+    def get_ongoing_students_count(cls, cohort: Cohort) -> int:
+        """
+        Count students in the cohort who have NOT yet completed or withdrawn from the course.
+        A student is considered withdrawn if their account status is DEACTIVATED,
+        SUSPENDED, or BLACKLISTED, or if is_active is False.
+        A student is considered completed if their overall course completion is 100%.
+        """
+        from apps.accounts.constants import AccountStatus, UserRole
+        from apps.lms.services import ProgressService
+
+        students = cohort.students.filter(role=UserRole.STUDENT)
+        ongoing_count = 0
+        for student in students:
+            # Check if withdrawn or inactive
+            if not student.is_active or student.status in [
+                AccountStatus.DEACTIVATED,
+                AccountStatus.SUSPENDED,
+                AccountStatus.BLACKLISTED,
+            ]:
+                continue
+
+            # Check if completed
+            completion = ProgressService.get_overall_completion(student)
+            foundational = ProgressService.get_foundational_completion(student)
+            if completion >= 1.0 or foundational >= 1.0:
+                continue
+
+            ongoing_count += 1
+
+        return ongoing_count
+
+    @classmethod
+    def can_deactivate_cohort(cls, cohort: Cohort) -> Tuple[bool, int]:
+        """
+        Return (can_deactivate, ongoing_count).
+        A cohort can be deactivated ONLY when all students in it have completed
+        or withdrawn from the course.
+        """
+        ongoing = cls.get_ongoing_students_count(cohort)
+        return (ongoing == 0, ongoing)
+
 
 # ===========================================================================
 # Live Class Service

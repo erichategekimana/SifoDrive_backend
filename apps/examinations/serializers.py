@@ -272,6 +272,10 @@ class AdminQuizQuestionSerializer(serializers.ModelSerializer):
             "option_b_kinyarwanda",
             "option_c_kinyarwanda",
             "option_d_kinyarwanda",
+            "option_a_image",
+            "option_b_image",
+            "option_c_image",
+            "option_d_image",
             "correct_option",
             "explanation",
             "explanation_kinyarwanda",
@@ -281,3 +285,4 @@ class AdminQuizQuestionSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+

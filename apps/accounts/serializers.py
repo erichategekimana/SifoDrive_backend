@@ -442,6 +442,22 @@ class StudentProfileSerializer(serializers.ModelSerializer):
 
 class AdminUserListSerializer(serializers.ModelSerializer):
     """Compact user representation for admin list views."""
+    cohort_name = serializers.SerializerMethodField()
+    cohort_id = serializers.SerializerMethodField()
+
+    def get_cohort_name(self, obj):
+        try:
+            first_cohort = obj.enrolled_cohorts.first()
+            return first_cohort.name if first_cohort else None
+        except Exception:
+            return None
+
+    def get_cohort_id(self, obj):
+        try:
+            first_cohort = obj.enrolled_cohorts.first()
+            return str(first_cohort.id) if first_cohort else None
+        except Exception:
+            return None
 
     class Meta:
         model = User
@@ -453,6 +469,8 @@ class AdminUserListSerializer(serializers.ModelSerializer):
             "role",
             "status",
             "student_id",
+            "cohort_name",
+            "cohort_id",
             "terms_of_service_accepted",
             "privacy_policy_accepted",
             "created_at",

@@ -480,7 +480,7 @@ class UserListView(SuccessResponseMixin, generics.ListAPIView):
     ordering = ["-created_at"]
 
     def get_queryset(self):
-        return User.objects.all().select_related("assigned_tutor")
+        return User.objects.all().select_related("assigned_tutor").prefetch_related("enrolled_cohorts")
 
 
 class AdminDashboardStatsView(SuccessResponseMixin, APIView):

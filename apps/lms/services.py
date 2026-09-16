@@ -86,12 +86,18 @@ class ContentGateService:
         from apps.accounts.constants import UserRole
         from .models import Course
 
-        if user and user.is_authenticated and user.role in (
-            UserRole.TUTOR, UserRole.TRAINING_ADMIN, UserRole.SYSTEM_ADMIN
+        if user and user.is_authenticated and (
+            user.is_staff
+            or user.is_superuser
+            or user.role in (
+                UserRole.TUTOR,
+                UserRole.TRAINING_ADMIN,
+                UserRole.SYSTEM_ADMIN,
+            )
         ):
-            return Course.objects.all()
+            return Course.objects.filter(is_deleted=False)
 
-        return Course.objects.filter(is_published=True)
+        return Course.objects.filter(is_published=True, is_deleted=False)
 
     @classmethod
     def get_visible_modules(cls, course, user) -> QuerySet:
@@ -103,8 +109,14 @@ class ContentGateService:
 
         qs = course.modules.filter(is_deleted=False)
 
-        if user and user.is_authenticated and user.role in (
-            UserRole.TUTOR, UserRole.TRAINING_ADMIN, UserRole.SYSTEM_ADMIN
+        if user and user.is_authenticated and (
+            user.is_staff
+            or user.is_superuser
+            or user.role in (
+                UserRole.TUTOR,
+                UserRole.TRAINING_ADMIN,
+                UserRole.SYSTEM_ADMIN,
+            )
         ):
             return qs
 
@@ -372,13 +384,19 @@ class CourseService:
 
         Raises ValueError if the course has no published modules.
         """
+        total_modules = course.modules.filter(is_deleted=False).count()
+        if total_modules == 0:
+            raise ValueError(
+                f"Cannot publish empty course '{course.title}'. Training admin must add curriculum modules before this course can be published."
+            )
+
         published_modules = course.modules.filter(
             is_published=True, is_deleted=False
         ).count()
 
         if published_modules == 0:
             raise ValueError(
-                f"Cannot publish '{course.title}': it must have at least one published module."
+                f"Cannot publish '{course.title}': it has {total_modules} module(s) but none are published. Training admin must publish at least one module before the course can go live."
             )
 
         course.publish(published_by=published_by)

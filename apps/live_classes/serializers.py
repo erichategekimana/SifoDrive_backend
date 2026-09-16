@@ -39,33 +39,14 @@ class UserBriefSerializer(serializers.ModelSerializer):
 
 class CohortListSerializer(serializers.ModelSerializer):
     """List serializer for Cohort / student batches."""
-    student_count = serializers.IntegerField(read_only=True)
-    tutor_count = serializers.IntegerField(read_only=True)
-
-    class Meta:
-        model = Cohort
-        fields = [
-            "id",
-            "name",
-            "code",
-            "description",
-            "start_date",
-            "end_date",
-            "max_capacity",
-            "is_active",
-            "schedule_description",
-            "student_count",
-            "tutor_count",
-            "created_at",
-        ]
-        read_only_fields = ["id", "student_count", "tutor_count", "created_at"]
-
-
-class CohortDetailSerializer(serializers.ModelSerializer):
-    """Detailed serializer with assigned tutors and student roster summary."""
     assigned_tutors = UserBriefSerializer(many=True, read_only=True)
     student_count = serializers.IntegerField(read_only=True)
     tutor_count = serializers.IntegerField(read_only=True)
+    ongoing_student_count = serializers.SerializerMethodField()
+
+    def get_ongoing_student_count(self, obj) -> int:
+        from .services import CohortService
+        return CohortService.get_ongoing_students_count(obj)
 
     class Meta:
         model = Cohort
@@ -82,10 +63,43 @@ class CohortDetailSerializer(serializers.ModelSerializer):
             "assigned_tutors",
             "student_count",
             "tutor_count",
+            "ongoing_student_count",
+            "created_at",
+        ]
+        read_only_fields = ["id", "assigned_tutors", "student_count", "tutor_count", "ongoing_student_count", "created_at"]
+
+
+class CohortDetailSerializer(serializers.ModelSerializer):
+    """Detailed serializer with assigned tutors and student roster summary."""
+    assigned_tutors = UserBriefSerializer(many=True, read_only=True)
+    student_count = serializers.IntegerField(read_only=True)
+    tutor_count = serializers.IntegerField(read_only=True)
+    ongoing_student_count = serializers.SerializerMethodField()
+
+    def get_ongoing_student_count(self, obj) -> int:
+        from .services import CohortService
+        return CohortService.get_ongoing_students_count(obj)
+
+    class Meta:
+        model = Cohort
+        fields = [
+            "id",
+            "name",
+            "code",
+            "description",
+            "start_date",
+            "end_date",
+            "max_capacity",
+            "is_active",
+            "schedule_description",
+            "assigned_tutors",
+            "student_count",
+            "tutor_count",
+            "ongoing_student_count",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "assigned_tutors", "student_count", "tutor_count", "created_at", "updated_at"]
+        read_only_fields = ["id", "assigned_tutors", "student_count", "tutor_count", "ongoing_student_count", "created_at", "updated_at"]
 
 
 class CohortCreateUpdateSerializer(serializers.ModelSerializer):
@@ -116,6 +130,15 @@ class CohortCreateUpdateSerializer(serializers.ModelSerializer):
         desc = attrs.get("description", "")
         if desc and len(desc) > 165:
             raise serializers.ValidationError({"description": "Description cannot exceed 165 characters."})
+
+        # Cohort can be deactivated ONLY when all students have completed or withdrawn from the course
+        if "is_active" in attrs and self.instance and self.instance.is_active and not attrs["is_active"]:
+            from .services import CohortService
+            can_deactivate, ongoing = CohortService.can_deactivate_cohort(self.instance)
+            if not can_deactivate:
+                raise serializers.ValidationError({
+                    "is_active": f"Cannot deactivate cohort '{self.instance.name}'. There are {ongoing} active student(s) currently enrolled who have not completed or withdrawn from the course."
+                })
 
         if not attrs.get("code") and not (self.instance and self.instance.code):
             import uuid

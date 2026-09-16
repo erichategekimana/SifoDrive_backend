@@ -344,9 +344,14 @@ class AdminQuestionBankListView(SuccessResponseMixin, generics.ListCreateAPIView
                 qs = qs.filter(question_number=int(search_clean))
             else:
                 qs = qs.filter(
-                    Q(question_text__icontains=search_clean)
-                    | Q(question_text_kinyarwanda__icontains=search_clean)
+                    Q(question_text_kinyarwanda__icontains=search_clean)
+                    | Q(question_text__icontains=search_clean)
+                    | Q(explanation_kinyarwanda__icontains=search_clean)
                     | Q(explanation__icontains=search_clean)
+                    | Q(option_a_kinyarwanda__icontains=search_clean)
+                    | Q(option_b_kinyarwanda__icontains=search_clean)
+                    | Q(option_c_kinyarwanda__icontains=search_clean)
+                    | Q(option_d_kinyarwanda__icontains=search_clean)
                 )
 
         return qs

@@ -119,6 +119,13 @@ class CohortDetailView(SuccessResponseMixin, generics.RetrieveUpdateDestroyAPIVi
         return CohortDetailSerializer
 
     def perform_destroy(self, instance):
+        from rest_framework.exceptions import ValidationError
+        from .services import CohortService
+        can_deactivate, ongoing = CohortService.can_deactivate_cohort(instance)
+        if not can_deactivate:
+            raise ValidationError(
+                f"Cannot deactivate cohort '{instance.name}'. There are {ongoing} active student(s) currently enrolled who have not completed or withdrawn from the course."
+            )
         instance.is_active = False
         instance.save(update_fields=["is_active", "updated_at"])
 

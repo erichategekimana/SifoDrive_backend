@@ -56,6 +56,7 @@ from .views import (
     UserListView,
     UserProfileView,
 )
+from .analytics_views import AdminPlatformAnalyticsView
 
 app_name = "accounts"
 
@@ -109,4 +110,5 @@ urlpatterns = [
     path("users/<uuid:user_id>/role/", AdminUserRoleUpdateView.as_view(), name="admin-user-role"),
     path("users/<uuid:user_id>/status/", AdminUserStatusUpdateView.as_view(), name="admin-user-status"),
     path("admin/stats/", AdminDashboardStatsView.as_view(), name="admin-stats"),
+    path("admin/analytics/", AdminPlatformAnalyticsView.as_view(), name="admin-analytics"),
 ]
