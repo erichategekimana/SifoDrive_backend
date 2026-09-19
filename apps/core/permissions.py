@@ -77,10 +77,29 @@ class IsBoardReviewer(HasRole):
     message = "Only board reviewers may access this resource."
 
 
+class IsAgent(HasRole):
+    """Allows access to Sifo Drive field/kiosk agents only."""
+    allowed_roles = (UserRole.AGENT,)
+    message = "Only authorized Sifo Drive agents may access this resource."
+
+
 class IsSystemAdmin(HasRole):
     """Allows access to System Administrators only."""
     allowed_roles = (UserRole.SYSTEM_ADMIN,)
     message = "System administrator privileges are required."
+
+
+class IsStaffOrAdmin(HasRole):
+    """Allows access to any staff member or administrator."""
+    allowed_roles = (
+        UserRole.AGENT,
+        UserRole.TUTOR,
+        UserRole.TRAINING_ADMIN,
+        UserRole.BOARD_REVIEWER,
+        UserRole.ENTERPRISE_ADMIN,
+        UserRole.SYSTEM_ADMIN,
+    )
+    message = "Staff or administrator privileges are required."
 
 
 # ---------------------------------------------------------------------------

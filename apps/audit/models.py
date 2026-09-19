@@ -198,10 +198,7 @@ class AuditLogQuerySet(models.QuerySet):
         return [log for log in self if not log.verify_hash()]
 
 
-class AuditLogManager(models.Manager):
-    def get_queryset(self):
-        return AuditLogQuerySet(self.model, using=self._db)
-
+class AuditLogManager(models.Manager.from_queryset(AuditLogQuerySet)):
     def create_log(
         self,
         action: str,

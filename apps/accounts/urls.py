@@ -57,6 +57,16 @@ from .views import (
     UserProfileView,
 )
 from .analytics_views import AdminPlatformAnalyticsView
+from .agents_views import (
+    AgentCommissionsListView,
+    AgentFacilitateServiceView,
+    AgentMonthlyPayoutView,
+    AgentOnboardClientView,
+    ServiceCommissionConfigView,
+    StaffDetailView,
+    StaffListCreateView,
+    StaffOverviewMetricsView,
+)
 
 app_name = "accounts"
 
@@ -111,4 +121,16 @@ urlpatterns = [
     path("users/<uuid:user_id>/status/", AdminUserStatusUpdateView.as_view(), name="admin-user-status"),
     path("admin/stats/", AdminDashboardStatsView.as_view(), name="admin-stats"),
     path("admin/analytics/", AdminPlatformAnalyticsView.as_view(), name="admin-analytics"),
+
+    # -------------------------------------------------------------------------
+    # Agents & Staff Control Center
+    # -------------------------------------------------------------------------
+    path("staff/metrics/", StaffOverviewMetricsView.as_view(), name="staff-metrics"),
+    path("staff/", StaffListCreateView.as_view(), name="staff-list-create"),
+    path("staff/<uuid:staff_id>/", StaffDetailView.as_view(), name="staff-detail"),
+    path("agent-commissions/rates/", ServiceCommissionConfigView.as_view(), name="commission-rates"),
+    path("agent-commissions/", AgentCommissionsListView.as_view(), name="agent-commissions"),
+    path("agent-commissions/payout/", AgentMonthlyPayoutView.as_view(), name="agent-payout"),
+    path("agent/onboard-client/", AgentOnboardClientView.as_view(), name="agent-onboard-client"),
+    path("agent/facilitate-service/", AgentFacilitateServiceView.as_view(), name="agent-facilitate-service"),
 ]

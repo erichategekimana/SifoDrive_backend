@@ -56,11 +56,34 @@ class UserRole(models.TextChoices):
     materials, and quiz banks. Can create, edit, update, publish, and delete curriculum.
     """
 
+    AGENT = "AGENT", _("Agent / Sifo Drive Agent")
+    """
+    Field / kiosk agent. Can create client accounts, facilitate bookings,
+    subscription purchases, and service payments. Earns configured commissions
+    per service paid out monthly (30-day cycle).
+    """
+
     SYSTEM_ADMIN = "SYSTEM_ADMIN", _("System Admin")
     """
     Full platform control. Manages users, content, timetables, payments,
     Irembo queue, and compliance configurations. Generates PII audit reports.
     """
+
+
+class CommissionServiceType(models.TextChoices):
+    """Platform services for which agents can earn commission fees."""
+    BOOKING = "BOOKING", _("Driving Test Booking Concierge")
+    SUBSCRIPTION = "SUBSCRIPTION", _("Course Subscription")
+    EXAM_PURCHASE = "EXAM_PURCHASE", _("Single / Multi Exam Purchase")
+    LEARNING_FEE = "LEARNING_FEE", _("Tuition / Learning Fee")
+    OTHER = "OTHER", _("Other Facilitated Service")
+
+
+class CommissionStatus(models.TextChoices):
+    """Commission ledger settlement states."""
+    ACCRUED = "ACCRUED", _("Accrued (Pending Monthly Payout)")
+    PAID_OUT = "PAID_OUT", _("Paid Out")
+    CANCELLED = "CANCELLED", _("Cancelled")
 
 
 class AccountStatus(models.TextChoices):

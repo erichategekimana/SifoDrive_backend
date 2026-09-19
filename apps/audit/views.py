@@ -22,12 +22,14 @@ from .models import AuditLog, AuditSeverity
 
 class AuditLogSerializer(drf_serializers.ModelSerializer):
     hash_valid = drf_serializers.SerializerMethodField()
+    created_at = drf_serializers.DateTimeField(source="timestamp", read_only=True)
 
     class Meta:
         model = AuditLog
         fields = [
             "id",
             "timestamp",
+            "created_at",
             "action",
             "severity",
             "performed_by_id",
