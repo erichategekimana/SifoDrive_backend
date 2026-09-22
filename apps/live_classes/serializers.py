@@ -218,6 +218,8 @@ class LiveClassListSerializer(serializers.ModelSerializer):
     cohort_code = serializers.CharField(source="cohort.code", read_only=True)
     module_title = serializers.CharField(source="module.title", read_only=True)
     lesson_title = serializers.CharField(source="lesson.title", read_only=True)
+    created_by_name = serializers.CharField(source="created_by.get_full_name", read_only=True)
+    created_by_role = serializers.CharField(source="created_by.role", read_only=True)
     is_past = serializers.BooleanField(read_only=True)
 
     class Meta:
@@ -235,6 +237,9 @@ class LiveClassListSerializer(serializers.ModelSerializer):
             "module_title",
             "lesson",
             "lesson_title",
+            "created_by",
+            "created_by_name",
+            "created_by_role",
             "scheduled_date",
             "start_time",
             "end_time",
@@ -255,6 +260,8 @@ class LiveClassDetailSerializer(serializers.ModelSerializer):
     resources = ClassResourceSerializer(many=True, read_only=True)
     module_title = serializers.CharField(source="module.title", read_only=True)
     lesson_title = serializers.CharField(source="lesson.title", read_only=True)
+    created_by_name = serializers.CharField(source="created_by.get_full_name", read_only=True)
+    created_by_role = serializers.CharField(source="created_by.role", read_only=True)
     is_past = serializers.BooleanField(read_only=True)
 
     class Meta:
@@ -269,6 +276,9 @@ class LiveClassDetailSerializer(serializers.ModelSerializer):
             "module_title",
             "lesson",
             "lesson_title",
+            "created_by",
+            "created_by_name",
+            "created_by_role",
             "scheduled_date",
             "start_time",
             "end_time",

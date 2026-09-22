@@ -158,24 +158,24 @@ class CourseListView(SuccessResponseMixin, generics.ListAPIView):
 class CourseCreateView(SuccessResponseMixin, generics.CreateAPIView):
     """
     POST /lms/courses/
-    Tutors and Admins can create courses (draft state by default).
+    System Admin only creates curriculum courses.
     """
 
-    permission_classes = [IsTutorOrTrainingAdmin]
+    permission_classes = [permissions.IsAuthenticated]
     serializer_class   = CourseWriteSerializer
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
     def create(self, request, *args, **kwargs):
-        if not _is_content_staff(request.user):
-            raise PermissionDenied("Only tutors and administrators can create courses.")
+        if not (request.user.is_authenticated and request.user.role == UserRole.SYSTEM_ADMIN):
+            raise PermissionDenied("Only system administrators can create curriculum courses.")
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         return self.created_response(
             data=CourseDetailSerializer(serializer.instance).data,
-            message="Course created as draft. Add modules and publish when ready.",
+            message="Curriculum course created as draft. Training admin will now manage modules and learning materials.",
         )
 
 
@@ -209,7 +209,7 @@ class CourseDetailView(SuccessResponseMixin, generics.RetrieveAPIView):
 class CourseUpdateView(SuccessResponseMixin, generics.UpdateAPIView):
     """
     PATCH /lms/courses/<id>/
-    Update course metadata (tutors and admins only).
+    Update course metadata (System Admin only).
     """
 
     permission_classes = [permissions.IsAuthenticated]
@@ -218,8 +218,8 @@ class CourseUpdateView(SuccessResponseMixin, generics.UpdateAPIView):
     http_method_names  = ["patch"]
 
     def get_object(self):
-        if not _is_content_staff(self.request.user):
-            raise PermissionDenied("Only tutors and administrators can edit courses.")
+        if not (self.request.user.is_authenticated and self.request.user.role == UserRole.SYSTEM_ADMIN):
+            raise PermissionDenied("Only system administrators can edit curriculum courses.")
         return super().get_object()
 
     def update(self, request, *args, **kwargs):
@@ -235,27 +235,27 @@ class CourseUpdateView(SuccessResponseMixin, generics.UpdateAPIView):
 
 
 class CourseDeleteView(SoftDeleteMixin, SuccessResponseMixin, generics.DestroyAPIView):
-    """DELETE /lms/courses/<id>/ — Admin only. Soft-deletes the course."""
+    """DELETE /lms/courses/<id>/ — System Admin only. Soft-deletes the course."""
 
     permission_classes = [permissions.IsAuthenticated]
     queryset           = Course.objects.all()
 
     def get_object(self):
-        if not _is_admin(self.request.user):
-            raise PermissionDenied("Only system administrators can delete courses.")
+        if not (self.request.user.is_authenticated and self.request.user.role == UserRole.SYSTEM_ADMIN):
+            raise PermissionDenied("Only system administrators can delete curriculum courses.")
         return super().get_object()
 
 
 class CoursePublishView(SuccessResponseMixin, APIView):
     """
     POST /lms/courses/<id>/publish/
-    Admin only. Validates the course has published modules, then makes it live.
+    System Admin only. Validates the course has published modules, then makes it live.
     """
 
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk, *args, **kwargs):
-        if not _is_admin(request.user):
+        if not (request.user.is_authenticated and request.user.role == UserRole.SYSTEM_ADMIN):
             raise PermissionDenied("Only system administrators can publish courses.")
 
         try:
@@ -280,7 +280,7 @@ class CourseUnpublishView(SuccessResponseMixin, APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk, *args, **kwargs):
-        if not _is_admin(request.user):
+        if not (request.user.is_authenticated and request.user.role == UserRole.SYSTEM_ADMIN):
             raise PermissionDenied("Only system administrators can unpublish courses.")
 
         try:

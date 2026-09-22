@@ -167,9 +167,9 @@ class LessonWriteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"media_url": "A media file or URL is required for VIDEO lessons."}
             )
-        if lesson_type == "AUDIO" and not data.get("media_file"):
+        if lesson_type == "AUDIO" and not (data.get("media_file") or data.get("media_url")):
             raise serializers.ValidationError(
-                {"media_file": "An audio file is required for AUDIO lessons."}
+                {"media_file": "An audio file or audio URL is required for AUDIO lessons."}
             )
         return data
 

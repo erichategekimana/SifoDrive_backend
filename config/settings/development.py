@@ -14,16 +14,20 @@ from .base import env
 DEBUG = True
 ALLOWED_HOSTS = ["*"]
 
+import sys
+
 # --- Development-Only Apps ---
+if not any("test" in arg for arg in sys.argv):
+    INSTALLED_APPS += [  # noqa: F405
+        "debug_toolbar",
+    ]
+    MIDDLEWARE = [  # noqa: F405
+        "debug_toolbar.middleware.DebugToolbarMiddleware",
+    ] + MIDDLEWARE  # noqa: F405
+
 INSTALLED_APPS += [  # noqa: F405
-    "debug_toolbar",
     "django_extensions",
 ]
-
-# --- Development-Only Middleware ---
-MIDDLEWARE = [  # noqa: F405
-    "debug_toolbar.middleware.DebugToolbarMiddleware",
-] + MIDDLEWARE  # noqa: F405
 
 # --- Debug Toolbar (only shows for internal IPs) ---
 INTERNAL_IPS = ["127.0.0.1", "localhost"]
@@ -32,6 +36,7 @@ DEBUG_TOOLBAR_CONFIG = {
     "SHOW_TOOLBAR_CALLBACK": lambda request: DEBUG,
     "SHOW_COLLAPSED": True,
     "SQL_WARNING_THRESHOLD": 100,   # Warn on queries > 100ms
+    "IS_RUNNING_TESTS": False,
 }
 
 # --- SQL Logging (Enable to see all queries in console) ---

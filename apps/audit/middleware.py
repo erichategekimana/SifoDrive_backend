@@ -53,6 +53,15 @@ SENSITIVE_PATH_RULES: list[tuple[str, set[str], str]] = [
 
     # System config endpoints
     ("/api/v1/auth/users/",         {"POST", "PATCH"},      AuditAction.SYSTEM_CONFIG),
+
+    # LMS Curriculum & Content management (Training Admin / Content Staff)
+    ("/api/v1/lms/courses/",        {"POST", "PATCH", "DELETE"}, AuditAction.CONTENT_PUBLISHED),
+    ("/api/v1/lms/modules/",        {"POST", "PATCH", "DELETE"}, AuditAction.CONTENT_PUBLISHED),
+    ("/api/v1/lms/lessons/",        {"POST", "PATCH", "DELETE"}, AuditAction.CONTENT_PUBLISHED),
+    ("/api/v1/lms/questions/",      {"POST", "PATCH", "DELETE"}, AuditAction.QUESTION_CREATED),
+
+    # Live Tutoring & Timetable sessions
+    ("/api/v1/live-classes/",       {"POST", "PATCH", "DELETE"}, AuditAction.SYSTEM_CONFIG),
 ]
 
 # HTTP status codes that are considered audit-worthy (skip redirects, assets)

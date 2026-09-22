@@ -51,7 +51,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.core.exceptions import PermissionDeniedException
 from apps.core.mixins import SuccessResponseMixin
-from apps.core.permissions import IsSystemAdmin, IsSameUserOrAdmin
+from apps.core.permissions import IsSystemAdmin, IsSameUserOrAdmin, IsTrainingAdminOrAbove
 
 from .serializers import (
     AcceptPrivacyPolicySerializer,
@@ -495,7 +495,7 @@ class AdminDashboardStatsView(SuccessResponseMixin, APIView):
     - lms_courses
     """
 
-    permission_classes = [IsSystemAdmin]
+    permission_classes = [IsTrainingAdminOrAbove]
 
     def get(self, request, *args, **kwargs):
         from apps.accounts.constants import UserRole
@@ -579,6 +579,7 @@ class AdminUserRoleUpdateView(SuccessResponseMixin, APIView):
 
     def post(self, request, user_id, *args, **kwargs):
         from rest_framework.exceptions import ValidationError, NotFound
+        from apps.accounts.constants import UserRole
 
         try:
             target_user = User.objects.get(id=user_id)
@@ -617,6 +618,7 @@ class AdminUserStatusUpdateView(SuccessResponseMixin, APIView):
 
     def post(self, request, user_id, *args, **kwargs):
         from rest_framework.exceptions import ValidationError, NotFound
+        from apps.accounts.constants import UserRole
 
         try:
             target_user = User.objects.get(id=user_id)
