@@ -143,6 +143,8 @@ class AdminExamSessionListSerializer(serializers.ModelSerializer):
     has_certificate = serializers.SerializerMethodField()
     certificate_number = serializers.SerializerMethodField()
     current_reviewer_info = serializers.SerializerMethodField()
+    can_system_approve = serializers.SerializerMethodField()
+    can_publish = serializers.SerializerMethodField()
 
     class Meta:
         model = ExamSession
@@ -168,6 +170,8 @@ class AdminExamSessionListSerializer(serializers.ModelSerializer):
             "has_certificate",
             "certificate_number",
             "current_reviewer_info",
+            "can_system_approve",
+            "can_publish",
             "created_at",
         ]
 
@@ -200,10 +204,16 @@ class AdminExamSessionListSerializer(serializers.ModelSerializer):
             return {"stage": "PUBLISHED", "reviewer_name": "Official", "label": "Published"}
         return {"stage": obj.status, "reviewer_name": "", "label": obj.get_status_display()}
 
+    def get_can_system_approve(self, obj: ExamSession) -> bool:
+        return obj.status == ExamSessionStatus.SYSTEM_REVIEW
+
+    def get_can_publish(self, obj: ExamSession) -> bool:
+        return obj.status == ExamSessionStatus.APPROVED and not obj.is_published
 
 class AdminExamSessionDetailSerializer(AdminExamSessionListSerializer):
     """Comprehensive inspection view including questions, snapshots, and stage notes."""
 
+    questions = SessionQuestionDetailSerializer(source="session_questions", many=True, read_only=True)
     session_questions = SessionQuestionDetailSerializer(many=True, read_only=True)
     proctoring_events = ProctoringEventSerializer(many=True, read_only=True)
     certificate = CertificateSerializer(read_only=True)
@@ -213,8 +223,59 @@ class AdminExamSessionDetailSerializer(AdminExamSessionListSerializer):
     approved_by_name = serializers.CharField(source="approved_by.get_full_name", read_only=True, default=None)
     published_by_name = serializers.CharField(source="published_by.get_full_name", read_only=True, default=None)
 
+    board_reviewer = serializers.SerializerMethodField()
+    training_admin = serializers.SerializerMethodField()
+    approved_by = serializers.SerializerMethodField()
+    published_by = serializers.SerializerMethodField()
+
+    can_system_approve = serializers.SerializerMethodField()
+    can_publish = serializers.SerializerMethodField()
+
+    def get_board_reviewer(self, obj: ExamSession):
+        if obj.board_reviewer:
+            return {
+                "id": str(obj.board_reviewer.id),
+                "full_name": obj.board_reviewer.get_full_name() or obj.board_reviewer.phone_number,
+                "phone_number": obj.board_reviewer.phone_number,
+            }
+        return None
+
+    def get_training_admin(self, obj: ExamSession):
+        if obj.training_admin:
+            return {
+                "id": str(obj.training_admin.id),
+                "full_name": obj.training_admin.get_full_name() or obj.training_admin.phone_number,
+                "phone_number": obj.training_admin.phone_number,
+            }
+        return None
+
+    def get_approved_by(self, obj: ExamSession):
+        if obj.approved_by:
+            return {
+                "id": str(obj.approved_by.id),
+                "full_name": obj.approved_by.get_full_name() or obj.approved_by.phone_number,
+                "phone_number": obj.approved_by.phone_number,
+            }
+        return None
+
+    def get_published_by(self, obj: ExamSession):
+        if obj.published_by:
+            return {
+                "id": str(obj.published_by.id),
+                "full_name": obj.published_by.get_full_name() or obj.published_by.phone_number,
+                "phone_number": obj.published_by.phone_number,
+            }
+        return None
+
+    def get_can_system_approve(self, obj: ExamSession) -> bool:
+        return obj.status == ExamSessionStatus.SYSTEM_REVIEW
+
+    def get_can_publish(self, obj: ExamSession) -> bool:
+        return obj.status == ExamSessionStatus.APPROVED and not obj.is_published
+
     class Meta(AdminExamSessionListSerializer.Meta):
         fields = AdminExamSessionListSerializer.Meta.fields + [
+            "questions",
             "session_questions",
             "proctoring_events",
             "certificate",
@@ -222,13 +283,19 @@ class AdminExamSessionDetailSerializer(AdminExamSessionListSerializer):
             "board_decision",
             "board_notes",
             "board_reviewer_name",
+            "board_reviewer",
             "training_reviewed_at",
             "training_decision",
             "training_notes",
             "training_admin_name",
+            "training_admin",
             "approved_by_name",
+            "approved_by",
             "approval_notes",
             "published_by_name",
+            "published_by",
+            "can_system_approve",
+            "can_publish",
         ]
 
 

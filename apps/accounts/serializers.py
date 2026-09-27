@@ -444,6 +444,9 @@ class AdminUserListSerializer(serializers.ModelSerializer):
     """Compact user representation for admin list views."""
     cohort_name = serializers.SerializerMethodField()
     cohort_id = serializers.SerializerMethodField()
+    assigned_tutor_name = serializers.CharField(source="assigned_tutor.full_name", read_only=True, default=None)
+    assigned_tutor_id = serializers.CharField(source="assigned_tutor.id", read_only=True, default=None)
+    assigned_tutor_phone = serializers.CharField(source="assigned_tutor.phone_number", read_only=True, default=None)
 
     def get_cohort_name(self, obj):
         try:
@@ -471,6 +474,9 @@ class AdminUserListSerializer(serializers.ModelSerializer):
             "student_id",
             "cohort_name",
             "cohort_id",
+            "assigned_tutor_name",
+            "assigned_tutor_id",
+            "assigned_tutor_phone",
             "terms_of_service_accepted",
             "privacy_policy_accepted",
             "created_at",
@@ -529,6 +535,12 @@ class AdminCreateUserSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 _("Creating a SYSTEM_ADMIN account via this interface is prohibited. System administrators must be created via CLI 'python3 manage.py createsuperuser'.")
             )
+        request = self.context.get("request")
+        if request and hasattr(request, "user") and request.user.is_authenticated:
+            if request.user.role == UserRole.TRAINING_ADMIN and value not in [UserRole.STUDENT, UserRole.GUEST, UserRole.TUTOR]:
+                raise serializers.ValidationError(
+                    _("Training administrators may only register students, guests, or tutors.")
+                )
         return value
 
     def create(self, validated_data: dict) -> User:

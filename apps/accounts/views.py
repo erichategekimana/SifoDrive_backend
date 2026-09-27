@@ -49,6 +49,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from apps.accounts.constants import AccountStatus, UserRole
 from apps.core.exceptions import PermissionDeniedException
 from apps.core.mixins import SuccessResponseMixin
 from apps.core.permissions import IsSystemAdmin, IsSameUserOrAdmin, IsTrainingAdminOrAbove
@@ -468,11 +469,11 @@ class UserListView(SuccessResponseMixin, generics.ListAPIView):
     """
     GET /api/v1/auth/users/
 
-    System Admin only — paginated list of all users.
+    System Admin & Training Admin — paginated list of users.
     Supports filtering by role / status and searching by phone / name / student_id.
     """
 
-    permission_classes = [IsSystemAdmin]
+    permission_classes = [IsTrainingAdminOrAbove]
     serializer_class = AdminUserListSerializer
     filterset_fields = ["role", "status"]
     search_fields = ["phone_number", "first_name", "last_name", "email", "student_id"]
@@ -480,7 +481,10 @@ class UserListView(SuccessResponseMixin, generics.ListAPIView):
     ordering = ["-created_at"]
 
     def get_queryset(self):
-        return User.objects.all().select_related("assigned_tutor").prefetch_related("enrolled_cohorts")
+        qs = User.objects.all().select_related("assigned_tutor").prefetch_related("enrolled_cohorts")
+        if self.request.user.role == UserRole.TRAINING_ADMIN:
+            qs = qs.exclude(role=UserRole.SYSTEM_ADMIN)
+        return qs
 
 
 class AdminDashboardStatsView(SuccessResponseMixin, APIView):
@@ -529,11 +533,13 @@ class AdminUserCreateView(SuccessResponseMixin, generics.CreateAPIView):
     """
     POST /api/v1/auth/users/create/
 
-    System Admin only. Creates accounts for other roles (TUTOR, ENTERPRISE_ADMIN, etc.).
-    STRICT PRIVILEGE BOUNDARY: Cannot create another SYSTEM_ADMIN.
+    System Admin & Training Admin: Creates accounts for other roles (TUTOR, STUDENT, GUEST, etc.).
+    STRICT PRIVILEGE BOUNDARY:
+    - Cannot create another SYSTEM_ADMIN.
+    - Training Admin can only create STUDENT, GUEST, or TUTOR.
     """
 
-    permission_classes = [IsSystemAdmin]
+    permission_classes = [IsTrainingAdminOrAbove]
     serializer_class = AdminCreateUserSerializer
 
     def create(self, request, *args, **kwargs):
@@ -551,14 +557,19 @@ class AdminUserDetailView(SuccessResponseMixin, generics.RetrieveAPIView):
     """
     GET /api/v1/auth/users/<uuid:user_id>/
 
-    System Admin only — inspect user profile, credentials metadata, and consent status.
+    System Admin & Training Admin — inspect user profile, credentials metadata, and consent status.
     """
 
-    permission_classes = [IsSystemAdmin]
+    permission_classes = [IsTrainingAdminOrAbove]
     serializer_class = AdminUserDetailSerializer
-    queryset = User.objects.all().select_related("assigned_tutor")
     lookup_field = "id"
     lookup_url_kwarg = "user_id"
+
+    def get_queryset(self):
+        qs = User.objects.all().select_related("assigned_tutor")
+        if self.request.user.role == UserRole.TRAINING_ADMIN:
+            qs = qs.exclude(role=UserRole.SYSTEM_ADMIN)
+        return qs
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -569,17 +580,17 @@ class AdminUserRoleUpdateView(SuccessResponseMixin, APIView):
     """
     POST /api/v1/auth/users/<uuid:user_id>/role/
 
-    System Admin only — updates user's role.
+    System Admin & Training Admin — updates user's role.
     STRICT PRIVILEGE BOUNDARY:
     - Cannot promote anyone to SYSTEM_ADMIN.
     - Cannot alter role of existing SYSTEM_ADMIN accounts.
+    - Training Admin can only switch between STUDENT and GUEST.
     """
 
-    permission_classes = [IsSystemAdmin]
+    permission_classes = [IsTrainingAdminOrAbove]
 
     def post(self, request, user_id, *args, **kwargs):
         from rest_framework.exceptions import ValidationError, NotFound
-        from apps.accounts.constants import UserRole
 
         try:
             target_user = User.objects.get(id=user_id)
@@ -592,6 +603,10 @@ class AdminUserRoleUpdateView(SuccessResponseMixin, APIView):
         serializer = AdminUserRoleUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         new_role = serializer.validated_data["role"]
+
+        if request.user.role == UserRole.TRAINING_ADMIN:
+            if target_user.role not in [UserRole.STUDENT, UserRole.GUEST] or new_role not in [UserRole.STUDENT, UserRole.GUEST]:
+                raise ValidationError("Training administrators may only modify roles between Student and Guest.")
 
         user = UserService.promote_to_role(
             user=target_user,
@@ -609,16 +624,16 @@ class AdminUserStatusUpdateView(SuccessResponseMixin, APIView):
     """
     POST /api/v1/auth/users/<uuid:user_id>/status/
 
-    System Admin only — activate, deactivate, suspend, or blacklist user account.
+    System Admin & Training Admin — activate, deactivate, suspend, or blacklist user account.
     STRICT PRIVILEGE BOUNDARY:
     - Cannot deactivate, suspend, or blacklist a SYSTEM_ADMIN account.
+    - Training Admin may only manage STUDENT, GUEST, or TUTOR accounts.
     """
 
-    permission_classes = [IsSystemAdmin]
+    permission_classes = [IsTrainingAdminOrAbove]
 
     def post(self, request, user_id, *args, **kwargs):
         from rest_framework.exceptions import ValidationError, NotFound
-        from apps.accounts.constants import UserRole
 
         try:
             target_user = User.objects.get(id=user_id)
@@ -627,6 +642,10 @@ class AdminUserStatusUpdateView(SuccessResponseMixin, APIView):
 
         if target_user.role == UserRole.SYSTEM_ADMIN and target_user != request.user:
             raise ValidationError("Status of other SYSTEM_ADMIN accounts cannot be altered.")
+
+        if request.user.role == UserRole.TRAINING_ADMIN:
+            if target_user.role not in [UserRole.STUDENT, UserRole.GUEST, UserRole.TUTOR]:
+                raise ValidationError("Training administrators can only modify the status of students, guests, or tutors.")
 
         serializer = AdminUserStatusUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -653,5 +672,44 @@ class AdminUserStatusUpdateView(SuccessResponseMixin, APIView):
         return self.success_response(
             data=AdminUserDetailSerializer(target_user).data,
             message=f"User account status changed to {target_user.status}.",
+        )
+
+
+class AdminUserTutorAssignView(SuccessResponseMixin, APIView):
+    """
+    POST /api/v1/auth/users/<uuid:user_id>/tutor/
+
+    Assign or unassign an individual tutor for a student (Training Admin & System Admin).
+    """
+
+    permission_classes = [IsTrainingAdminOrAbove]
+
+    def post(self, request, user_id, *args, **kwargs):
+        from rest_framework.exceptions import NotFound, ValidationError
+
+        try:
+            target_user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            raise NotFound("Student not found.")
+
+        if target_user.role not in [UserRole.STUDENT, UserRole.GUEST]:
+            raise ValidationError("Tutors can only be assigned to students or guests.")
+
+        tutor_id = request.data.get("tutor_id")
+        if tutor_id:
+            try:
+                tutor = User.objects.get(id=tutor_id, role=UserRole.TUTOR)
+            except User.DoesNotExist:
+                raise ValidationError("Selected tutor was not found or is not a registered tutor.")
+            target_user.assigned_tutor = tutor
+            message = f"Assigned tutor {tutor.full_name or tutor.phone_number} to {target_user.full_name or target_user.phone_number}."
+        else:
+            target_user.assigned_tutor = None
+            message = f"Removed assigned tutor from {target_user.full_name or target_user.phone_number}."
+
+        target_user.save(update_fields=["assigned_tutor", "updated_at"])
+        return self.success_response(
+            data=AdminUserListSerializer(target_user).data,
+            message=message,
         )
 

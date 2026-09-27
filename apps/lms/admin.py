@@ -17,11 +17,14 @@ from django.utils.translation import gettext_lazy as _
 
 from .models import (
     Course,
+    Curriculum,
     Lesson,
     LessonBookmark,
     LessonQuestion,
     Module,
+    Quiz,
     QuizQuestion,
+    QuizQuestionItem,
     RoadSign,
     StudentProgress,
 )
@@ -30,6 +33,17 @@ from .models import (
 # ===========================================================================
 # Inline editors (used inside parent admin pages)
 # ===========================================================================
+
+class CourseInline(admin.TabularInline):
+    """Courses inline inside Curriculum admin."""
+
+    model = Course
+    extra = 0
+    fields = ["title", "code", "sort_order", "estimated_hours", "is_published"]
+    readonly_fields = ["is_published"]
+    ordering = ["sort_order"]
+    show_change_link = True
+
 
 class ModuleInline(admin.TabularInline):
     """Modules inline inside Course admin."""
@@ -63,17 +77,47 @@ class LessonQuestionInline(admin.TabularInline):
 
 
 # ===========================================================================
+# Curriculum Admin
+# ===========================================================================
+
+@admin.register(Curriculum)
+class CurriculumAdmin(admin.ModelAdmin):
+    list_display = [
+        "title", "code", "publish_status", "course_count",
+        "sort_order", "created_by", "created_at",
+    ]
+    list_filter = ["is_published", "created_at"]
+    search_fields = ["title", "title_kinyarwanda", "code", "description"]
+    ordering = ["sort_order", "title"]
+    readonly_fields = [
+        "id", "published_at", "published_by", "created_by", "updated_by",
+        "created_at", "updated_at",
+    ]
+    inlines = [CourseInline]
+
+    @admin.display(description=_("Status"))
+    def publish_status(self, obj):
+        if obj.is_published:
+            return format_html('<span style="color:#16a34a; font-weight:bold;">● Live</span>')
+        return format_html('<span style="color:#d97706;">○ Draft</span>')
+
+    @admin.display(description=_("Courses"))
+    def course_count(self, obj):
+        return obj.course_count
+
+
+# ===========================================================================
 # Course Admin
 # ===========================================================================
 
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
     list_display = [
-        "title", "publish_status", "module_count", "lesson_count",
+        "title", "code", "curriculum", "publish_status", "module_count", "lesson_count",
         "estimated_hours", "sort_order", "created_by", "created_at",
     ]
-    list_filter  = ["is_published", "created_at"]
-    search_fields = ["title", "description"]
+    list_filter  = ["is_published", "curriculum", "created_at"]
+    search_fields = ["title", "title_kinyarwanda", "code", "description"]
     ordering = ["sort_order", "title"]
     readonly_fields = [
         "id", "published_at", "published_by", "created_by", "updated_by",
@@ -402,3 +446,51 @@ class LessonBookmarkAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request): return False
     def has_change_permission(self, request, obj=None): return False
+
+
+# ===========================================================================
+# Quiz & QuizQuestionItem Admin
+# ===========================================================================
+
+class QuizQuestionItemInline(admin.StackedInline):
+    model = QuizQuestionItem
+    extra = 0
+    fields = [
+        "sort_order", "question_text", "question_text_kinyarwanda",
+        "option_a", "option_b", "option_c", "option_d",
+        "correct_option", "points", "domain", "difficulty", "original_question"
+    ]
+    autocomplete_fields = ["original_question"]
+    ordering = ["sort_order"]
+
+
+@admin.register(Quiz)
+class QuizAdmin(admin.ModelAdmin):
+    list_display = [
+        "title", "course", "module", "is_published", "status_display",
+        "total_score", "passing_score", "open_date", "deadline",
+        "created_by", "created_at"
+    ]
+    list_filter = ["is_published", "course", "created_at"]
+    search_fields = ["title", "title_kinyarwanda", "description", "rubric"]
+    readonly_fields = ["created_at", "updated_at"]
+    inlines = [QuizQuestionItemInline]
+
+    @admin.display(description=_("Status"))
+    def status_display(self, obj):
+        st = obj.status
+        colors = {
+            "DRAFT": "#64748b",
+            "SCHEDULED": "#d97706",
+            "OPEN": "#16a34a",
+            "CLOSED": "#dc2626",
+        }
+        return format_html('<span style="color:{}; font-weight:bold;">● {}</span>', colors.get(st, "#000"), st)
+
+
+@admin.register(QuizQuestionItem)
+class QuizQuestionItemAdmin(admin.ModelAdmin):
+    list_display = ["quiz", "sort_order", "question_text", "correct_option", "points", "domain", "difficulty"]
+    list_filter = ["quiz", "domain", "difficulty"]
+    search_fields = ["question_text", "question_text_kinyarwanda", "quiz__title"]
+

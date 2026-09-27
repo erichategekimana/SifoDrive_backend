@@ -73,6 +73,14 @@ from .views import (
     CourseStatsView,
     CourseUnpublishView,
     CourseUpdateView,
+    CurriculumCoursesListView,
+    CurriculumCreateView,
+    CurriculumDeleteView,
+    CurriculumDetailView,
+    CurriculumListView,
+    CurriculumPublishView,
+    CurriculumUnpublishView,
+    CurriculumUpdateView,
     LessonCreateView,
     LessonDeleteView,
     LessonDetailView,
@@ -91,6 +99,9 @@ from .views import (
     ModuleUpdateView,
     ProgressListView,
     ProgressSummaryView,
+    QuizDetailUpdateDeleteView,
+    QuizListCreateView,
+    QuizPublishToggleView,
     QuizQuestionCreateView,
     QuizQuestionDetailView,
     QuizQuestionListView,
@@ -105,6 +116,16 @@ from .views import (
 app_name = "lms"
 
 urlpatterns = [
+
+    # ── Curricula ────────────────────────────────────────────────────────────
+    path("curricula/",                          CurriculumListView.as_view(),        name="curriculum-list"),
+    path("curricula/create/",                   CurriculumCreateView.as_view(),      name="curriculum-create"),
+    path("curricula/<uuid:pk>/",                CurriculumDetailView.as_view(),      name="curriculum-detail"),
+    path("curricula/<uuid:pk>/edit/",           CurriculumUpdateView.as_view(),      name="curriculum-update"),
+    path("curricula/<uuid:pk>/delete/",         CurriculumDeleteView.as_view(),      name="curriculum-delete"),
+    path("curricula/<uuid:pk>/publish/",        CurriculumPublishView.as_view(),     name="curriculum-publish"),
+    path("curricula/<uuid:pk>/unpublish/",      CurriculumUnpublishView.as_view(),   name="curriculum-unpublish"),
+    path("curricula/<uuid:pk>/courses/",        CurriculumCoursesListView.as_view(), name="curriculum-courses"),
 
     # ── Courses ──────────────────────────────────────────────────────────────
     path("courses/",                            CourseListView.as_view(),      name="course-list"),
@@ -147,6 +168,11 @@ urlpatterns = [
     path("questions/create/",     QuizQuestionCreateView.as_view(), name="question-create"),
     path("questions/<uuid:pk>/",  QuizQuestionDetailView.as_view(), name="question-detail"),
     path("questions/<uuid:pk>/edit/", QuizQuestionUpdateView.as_view(), name="question-update"),
+
+    # ── Quizzes (Quiz Bank Engine) ───────────────────────────────────────────
+    path("quizzes/",                  QuizListCreateView.as_view(),          name="quiz-list-create"),
+    path("quizzes/<uuid:pk>/",        QuizDetailUpdateDeleteView.as_view(),  name="quiz-detail-update-delete"),
+    path("quizzes/<uuid:pk>/publish/", QuizPublishToggleView.as_view(),      name="quiz-publish-toggle"),
 
     # ── Student Progress ─────────────────────────────────────────────────────
     path("progress/",          ProgressListView.as_view(),        name="progress-list"),

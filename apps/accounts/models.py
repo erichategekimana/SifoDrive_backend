@@ -256,6 +256,10 @@ class User(AbstractBaseUser, PermissionsMixin, UUIDModel, TimeStampedModel):
         return self.role == UserRole.BOARD_REVIEWER
 
     @property
+    def is_training_admin(self) -> bool:
+        return self.role == UserRole.TRAINING_ADMIN
+
+    @property
     def is_system_admin(self) -> bool:
         return self.role == UserRole.SYSTEM_ADMIN
 

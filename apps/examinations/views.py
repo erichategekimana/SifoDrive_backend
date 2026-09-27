@@ -12,6 +12,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.accounts.constants import UserRole
 from apps.core.mixins import SuccessResponseMixin
 from apps.core.pagination import StandardResultsPagination
 from apps.core.permissions import IsAdminLevel, IsSystemAdmin
@@ -56,7 +57,7 @@ class AdminExamSessionListView(SuccessResponseMixin, generics.ListAPIView):
     def get_queryset(self):
         qs = ExamSession.objects.select_related("student", "cohort", "certificate").order_by("-created_at")
 
-        cohort_id = self.request.query_params.get("cohort_id")
+        cohort_id = self.request.query_params.get("cohort_id") or self.request.query_params.get("cohort")
         if cohort_id:
             qs = qs.filter(cohort_id=cohort_id)
 
@@ -111,6 +112,36 @@ class AdminExamStageActionView(SuccessResponseMixin, APIView):
         action = serializer.validated_data["action"]
         decision = serializer.validated_data.get("decision", "APPROVE")
         notes = serializer.validated_data.get("notes", "")
+
+        # Enforce role-level authorization for stage actions:
+        if action == "BOARD_DECISION":
+            if request.user.role not in (UserRole.BOARD_REVIEWER, UserRole.SYSTEM_ADMIN):
+                return self.error_response(
+                    code="PERMISSION_DENIED",
+                    message="Only Board Reviewers (or System Admin) may perform initial board review.",
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
+        elif action == "TRAINING_DECISION":
+            if request.user.role not in (UserRole.TRAINING_ADMIN, UserRole.SYSTEM_ADMIN):
+                return self.error_response(
+                    code="PERMISSION_DENIED",
+                    message="Only Training Administrators (or System Admin) may perform pedagogical review.",
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
+        elif action == "SYSTEM_APPROVE":
+            if request.user.role != UserRole.SYSTEM_ADMIN:
+                return self.error_response(
+                    code="PERMISSION_DENIED",
+                    message="Only System Administrators may perform final certification approval.",
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
+        elif action == "REJECT":
+            if request.user.role not in (UserRole.TRAINING_ADMIN, UserRole.BOARD_REVIEWER, UserRole.SYSTEM_ADMIN):
+                return self.error_response(
+                    code="PERMISSION_DENIED",
+                    message="You do not have permission to reject this examination session.",
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
 
         try:
             if action == "BOARD_DECISION":

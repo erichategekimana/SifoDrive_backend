@@ -68,6 +68,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.mixins import SuccessResponseMixin, SoftDeleteMixin
+from apps.core.pagination import LargeBatchPagination
 from apps.core.permissions import (
     IsAdminLevel,
     IsStudent,
@@ -79,11 +80,14 @@ from apps.core.permissions import (
 
 from .models import (
     Course,
+    Curriculum,
     Lesson,
     LessonBookmark,
     LessonQuestion,
     Module,
+    Quiz,
     QuizQuestion,
+    QuizQuestionItem,
     RoadSign,
     StudentProgress,
 )
@@ -92,6 +96,9 @@ from .serializers import (
     CourseListSerializer,
     CourseStatsSerializer,
     CourseWriteSerializer,
+    CurriculumDetailSerializer,
+    CurriculumListSerializer,
+    CurriculumWriteSerializer,
     LessonBookmarkSerializer,
     LessonDetailSerializer,
     LessonListSerializer,
@@ -102,9 +109,12 @@ from .serializers import (
     ModuleListSerializer,
     ModuleWriteSerializer,
     ProgressSummarySerializer,
+    QuizDetailSerializer,
+    QuizListSerializer,
     QuizQuestionDetailSerializer,
     QuizQuestionListSerializer,
     QuizQuestionWriteSerializer,
+    QuizWriteSerializer,
     RecordQuizAttemptSerializer,
     RoadSignSerializer,
     StudentProgressSerializer,
@@ -134,6 +144,173 @@ def _is_admin(user) -> bool:
 
 
 # ===========================================================================
+# CURRICULUM VIEWS
+# ===========================================================================
+
+class CurriculumListView(SuccessResponseMixin, generics.ListAPIView):
+    """
+    GET /lms/curricula/
+    List all curricula (published for learners, all for staff/admins).
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = CurriculumListSerializer
+    search_fields = ["title", "title_kinyarwanda", "code", "description"]
+    ordering_fields = ["sort_order", "created_at", "title"]
+    ordering = ["sort_order", "-created_at"]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = Curriculum.objects.filter(is_deleted=False)
+        if not (user.is_authenticated and user.role in (UserRole.SYSTEM_ADMIN, UserRole.TRAINING_ADMIN, UserRole.TUTOR)):
+            qs = qs.filter(is_published=True)
+        return qs
+
+
+class CurriculumCreateView(SuccessResponseMixin, generics.CreateAPIView):
+    """
+    POST /lms/curricula/create/
+    System Admin only creates curricula.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = CurriculumWriteSerializer
+
+    def create(self, request, *args, **kwargs):
+        if not (request.user.is_authenticated and request.user.role == UserRole.SYSTEM_ADMIN):
+            raise PermissionDenied("Only system administrators can create curricula.")
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save(created_by=request.user)
+        return self.created_response(
+            data=CurriculumDetailSerializer(instance).data,
+            message="Curriculum created successfully.",
+        )
+
+
+class CurriculumDetailView(SuccessResponseMixin, generics.RetrieveAPIView):
+    """
+    GET /lms/curricula/<id>/
+    Retrieve a curriculum with its nested courses.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = CurriculumDetailSerializer
+
+    def get_object(self):
+        try:
+            curr = Curriculum.objects.get(pk=self.kwargs["pk"], is_deleted=False)
+        except Curriculum.DoesNotExist:
+            raise NotFound("Curriculum not found.")
+        user = self.request.user
+        if not curr.is_published and not (user.is_authenticated and user.role in (UserRole.SYSTEM_ADMIN, UserRole.TRAINING_ADMIN, UserRole.TUTOR)):
+            raise NotFound("Curriculum not found.")
+        return curr
+
+
+class CurriculumUpdateView(SuccessResponseMixin, generics.UpdateAPIView):
+    """
+    PATCH /lms/curricula/<id>/edit/
+    System Admin only updates curricula.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = CurriculumWriteSerializer
+
+    def get_object(self):
+        try:
+            return Curriculum.objects.get(pk=self.kwargs["pk"], is_deleted=False)
+        except Curriculum.DoesNotExist:
+            raise NotFound("Curriculum not found.")
+
+    def update(self, request, *args, **kwargs):
+        if not (request.user.is_authenticated and request.user.role == UserRole.SYSTEM_ADMIN):
+            raise PermissionDenied("Only system administrators can edit curricula.")
+        partial = kwargs.pop('partial', True)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save(updated_by=request.user)
+        return self.success_response(
+            data=CurriculumDetailSerializer(instance).data,
+            message="Curriculum updated successfully.",
+        )
+
+
+class CurriculumDeleteView(SuccessResponseMixin, APIView):
+    """
+    DELETE /lms/curricula/<id>/delete/
+    System Admin only deletes curricula (soft-delete).
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, pk, *args, **kwargs):
+        if not (request.user.is_authenticated and request.user.role == UserRole.SYSTEM_ADMIN):
+            raise PermissionDenied("Only system administrators can delete curricula.")
+        try:
+            curr = Curriculum.objects.get(pk=pk, is_deleted=False)
+        except Curriculum.DoesNotExist:
+            raise NotFound("Curriculum not found.")
+        curr.soft_delete(deleted_by=request.user)
+        return self.success_response(message=f"Curriculum '{curr.title}' deleted successfully.")
+
+
+class CurriculumPublishView(SuccessResponseMixin, APIView):
+    """
+    POST /lms/curricula/<id>/publish/
+    System Admin publishes a curriculum.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk, *args, **kwargs):
+        if not (request.user.is_authenticated and request.user.role == UserRole.SYSTEM_ADMIN):
+            raise PermissionDenied("Only system administrators can publish curricula.")
+        try:
+            curr = Curriculum.objects.get(pk=pk, is_deleted=False)
+        except Curriculum.DoesNotExist:
+            raise NotFound("Curriculum not found.")
+        curr.publish(published_by=request.user)
+        return self.success_response(
+            data=CurriculumDetailSerializer(curr).data,
+            message=f"Curriculum '{curr.title}' is now published.",
+        )
+
+
+class CurriculumUnpublishView(SuccessResponseMixin, APIView):
+    """
+    POST /lms/curricula/<id>/unpublish/
+    System Admin unpublishes a curriculum.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk, *args, **kwargs):
+        if not (request.user.is_authenticated and request.user.role == UserRole.SYSTEM_ADMIN):
+            raise PermissionDenied("Only system administrators can unpublish curricula.")
+        try:
+            curr = Curriculum.objects.get(pk=pk, is_deleted=False)
+        except Curriculum.DoesNotExist:
+            raise NotFound("Curriculum not found.")
+        curr.unpublish()
+        return self.success_response(
+            data=CurriculumDetailSerializer(curr).data,
+            message=f"Curriculum '{curr.title}' moved to draft.",
+        )
+
+
+class CurriculumCoursesListView(SuccessResponseMixin, generics.ListAPIView):
+    """
+    GET /lms/curricula/<id>/courses/
+    List courses under a specific curriculum.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = CourseListSerializer
+
+    def get_queryset(self):
+        curr_id = self.kwargs["pk"]
+        user = self.request.user
+        qs = Course.objects.filter(curriculum_id=curr_id, is_deleted=False)
+        if not (user.is_authenticated and user.role in (UserRole.SYSTEM_ADMIN, UserRole.TRAINING_ADMIN, UserRole.TUTOR)):
+            qs = qs.filter(is_published=True)
+        return qs.order_by("sort_order", "created_at")
+
+
+# ===========================================================================
 # COURSE VIEWS
 # ===========================================================================
 
@@ -146,8 +323,8 @@ class CourseListView(SuccessResponseMixin, generics.ListAPIView):
 
     permission_classes = [permissions.IsAuthenticated]
     serializer_class   = CourseListSerializer
-    filterset_fields   = ["is_published"]
-    search_fields      = ["title", "description"]
+    filterset_fields   = ["is_published", "curriculum"]
+    search_fields      = ["title", "description", "code"]
     ordering_fields    = ["sort_order", "created_at", "title"]
     ordering           = ["sort_order"]
 
@@ -573,7 +750,7 @@ class LessonQuestionListView(SuccessResponseMixin, generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         # Quiz questions only accessible to students and above
-        if user.role not in (UserRole.STUDENT, UserRole.TUTOR, UserRole.SYSTEM_ADMIN):
+        if user.role not in (UserRole.STUDENT, UserRole.TUTOR, UserRole.TRAINING_ADMIN, UserRole.SYSTEM_ADMIN):
             raise PermissionDenied("Quiz questions require a student or staff account.")
 
         return LessonQuestion.objects.filter(
@@ -715,6 +892,7 @@ class QuizQuestionListView(SuccessResponseMixin, generics.ListAPIView):
 
     permission_classes = [permissions.IsAuthenticated]
     serializer_class   = QuizQuestionListSerializer
+    pagination_class   = LargeBatchPagination
     filterset_fields   = ["domain", "difficulty", "is_active"]
     search_fields      = ["question_text", "question_text_kinyarwanda"]
     ordering_fields    = ["domain", "difficulty", "created_at"]
@@ -722,7 +900,7 @@ class QuizQuestionListView(SuccessResponseMixin, generics.ListAPIView):
 
     def get_queryset(self):
         if self.request.user.role not in (
-            UserRole.STUDENT, UserRole.TUTOR, UserRole.SYSTEM_ADMIN
+            UserRole.STUDENT, UserRole.TUTOR, UserRole.TRAINING_ADMIN, UserRole.SYSTEM_ADMIN
         ):
             raise PermissionDenied("Quiz questions are only accessible to students and staff.")
         return QuizQuestion.objects.filter(is_active=True)
@@ -741,7 +919,7 @@ class QuizQuestionDetailView(SuccessResponseMixin, generics.RetrieveAPIView):
 
     def get_object(self):
         if self.request.user.role not in (
-            UserRole.STUDENT, UserRole.TUTOR, UserRole.SYSTEM_ADMIN
+            UserRole.STUDENT, UserRole.TUTOR, UserRole.TRAINING_ADMIN, UserRole.SYSTEM_ADMIN
         ):
             raise PermissionDenied("Quiz questions are only accessible to students and staff.")
         return super().get_object()
@@ -957,3 +1135,136 @@ class BookmarkDeleteView(SoftDeleteMixin, SuccessResponseMixin, generics.Destroy
 
     def perform_destroy(self, instance):
         instance.hard_delete()
+
+
+# ===========================================================================
+# Quiz Management Views (Quiz Bank Engine)
+# ===========================================================================
+
+class QuizListCreateView(SuccessResponseMixin, generics.ListCreateAPIView):
+    """
+    GET  /lms/quizzes/ — List quizzes (filterable by course, module, status).
+    POST /lms/quizzes/ — Create a new quiz (Training Admin or System Admin).
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return QuizWriteSerializer
+        return QuizListSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = Quiz.objects.select_related("course", "module", "created_by").prefetch_related("items").all()
+
+        # Non-staff users only see published and unlocked quizzes
+        if not _is_content_staff(user):
+            qs = qs.filter(is_published=True)
+
+        course_id = self.request.query_params.get("course")
+        if course_id:
+            qs = qs.filter(course_id=course_id)
+
+        module_id = self.request.query_params.get("module")
+        if module_id:
+            qs = qs.filter(module_id=module_id)
+
+        search = self.request.query_params.get("search")
+        if search:
+            qs = qs.filter(title__icontains=search)
+
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        status_filter = request.query_params.get("status")
+        if status_filter:
+            filtered = [q for q in queryset if q.status.lower() == status_filter.lower()]
+            serializer = QuizListSerializer(filtered, many=True)
+            return self.success_response(data=serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return self.success_response(data=serializer.data)
+
+    def create(self, request, *args, **kwargs):
+        if not _is_admin(request.user):
+            raise PermissionDenied("Only administrators can create quizzes.")
+
+        serializer = QuizWriteSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        quiz = serializer.save()
+        return self.created_response(
+            data=QuizDetailSerializer(quiz).data,
+            message="Quiz created successfully.",
+        )
+
+
+class QuizDetailUpdateDeleteView(SoftDeleteMixin, SuccessResponseMixin, generics.RetrieveUpdateDestroyAPIView):
+    """
+    GET    /lms/quizzes/<id>/ — Retrieve quiz with questions and rubric.
+    PATCH  /lms/quizzes/<id>/ — Update quiz and questions.
+    DELETE /lms/quizzes/<id>/ — Delete quiz.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Quiz.objects.select_related("course", "module", "created_by").prefetch_related("items", "items__original_question").all()
+
+    def get_object(self):
+        try:
+            return self.get_queryset().get(pk=self.kwargs["pk"])
+        except Quiz.DoesNotExist:
+            raise NotFound("Quiz not found.")
+
+    def retrieve(self, request, *args, **kwargs):
+        quiz = self.get_object()
+        return self.success_response(data=QuizDetailSerializer(quiz).data)
+
+    def patch(self, request, *args, **kwargs):
+        if not _is_admin(request.user):
+            raise PermissionDenied("Only administrators can update quizzes.")
+
+        quiz = self.get_object()
+        serializer = QuizWriteSerializer(
+            quiz,
+            data=request.data,
+            partial=True,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        quiz = serializer.save()
+        return self.success_response(
+            data=QuizDetailSerializer(quiz).data,
+            message="Quiz updated successfully.",
+        )
+
+    def perform_destroy(self, instance):
+        if not _is_admin(self.request.user):
+            raise PermissionDenied("Only administrators can delete quizzes.")
+        instance.delete()
+
+
+class QuizPublishToggleView(SuccessResponseMixin, APIView):
+    """
+    POST /lms/quizzes/<id>/publish/ — Toggle published state of a quiz.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk, *args, **kwargs):
+        if not _is_admin(request.user):
+            raise PermissionDenied("Only administrators can publish quizzes.")
+
+        try:
+            quiz = Quiz.objects.get(pk=pk)
+        except Quiz.DoesNotExist:
+            raise NotFound("Quiz not found.")
+
+        quiz.is_published = not quiz.is_published
+        quiz.save(update_fields=["is_published", "updated_at"])
+
+        msg = "Quiz published successfully." if quiz.is_published else "Quiz unpublished."
+        return self.success_response(
+            data=QuizDetailSerializer(quiz).data,
+            message=msg,
+        )
+

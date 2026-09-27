@@ -85,27 +85,170 @@ class CorrectOption(models.TextChoices):
 
 
 # ===========================================================================
-# Course
+# Curriculum
 # ===========================================================================
 
-class Course(OrderedModel):
+class Curriculum(OrderedModel):
     """
-    Top-level learning container — a complete curriculum on driving theory.
-    No license_category: all courses cover universal Rwanda driving rules.
-
-    Publish lifecycle:
-      - is_published=False → draft, hidden from students & guests
-      - is_published=True  → live, accessible to all authorised learners
-      - Only SYSTEM_ADMIN can call publish(); Tutors create drafts.
+    Overarching educational framework (e.g. 'Universal Rwanda Driving Theory', 'Category B Driver Training').
+    A Curriculum contains multiple Courses.
+    Only SYSTEM_ADMIN can create and manage Curricula.
     """
 
     title = models.CharField(
         _("Title"),
         max_length=200,
     )
+    title_kinyarwanda = models.CharField(
+        _("Title (Kinyarwanda)"),
+        max_length=200,
+        blank=True,
+        default="",
+    )
+    code = models.CharField(
+        _("Code"),
+        max_length=50,
+        unique=True,
+        blank=True,
+        null=True,
+        help_text=_("Curriculum identifier, e.g. RW-CURR-UNIVERSAL"),
+    )
     description = models.TextField(
         _("Description"),
         blank=True,
+        default="",
+    )
+    description_kinyarwanda = models.TextField(
+        _("Description (Kinyarwanda)"),
+        blank=True,
+        default="",
+    )
+    thumbnail = models.ImageField(
+        _("Thumbnail"),
+        upload_to="lms/curricula/thumbnails/",
+        null=True,
+        blank=True,
+        help_text=_("Curriculum cover image."),
+    )
+
+    # ── Authorship ──────────────────────────────────────────────────────────
+    created_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_curricula",
+        verbose_name=_("Created By"),
+    )
+    updated_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="updated_curricula",
+        verbose_name=_("Last Updated By"),
+    )
+
+    # ── Publish lifecycle ────────────────────────────────────────────────────
+    is_published = models.BooleanField(
+        _("Published"),
+        default=False,
+        db_index=True,
+    )
+    published_at = models.DateTimeField(
+        _("Published At"),
+        null=True,
+        blank=True,
+    )
+    published_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="published_curricula",
+        verbose_name=_("Published By"),
+    )
+
+    class Meta(OrderedModel.Meta):
+        verbose_name = _("Curriculum")
+        verbose_name_plural = _("Curricula")
+
+    def __str__(self) -> str:
+        status = "✓" if self.is_published else "draft"
+        return f"[{status}] {self.title}"
+
+    @property
+    def course_count(self) -> int:
+        return self.courses.filter(is_deleted=False).count()
+
+    @property
+    def published_course_count(self) -> int:
+        return self.courses.filter(is_published=True, is_deleted=False).count()
+
+    def publish(self, published_by=None) -> None:
+        """Make this curriculum live. Idempotent."""
+        if self.is_published:
+            return
+        self.is_published = True
+        self.published_at = timezone.now()
+        if published_by:
+            self.published_by = published_by
+        self.save(update_fields=[
+            "is_published", "published_at", "published_by", "updated_at"
+        ])
+
+    def unpublish(self) -> None:
+        """Pull curriculum back to draft state. Idempotent."""
+        if not self.is_published:
+            return
+        self.is_published = False
+        self.save(update_fields=["is_published", "updated_at"])
+
+
+# ===========================================================================
+# Course
+# ===========================================================================
+
+class Course(OrderedModel):
+    """
+    Learning container within a Curriculum (e.g. 'Road Regulations & Traffic Signs').
+    A Curriculum contains multiple Courses, and each Course contains multiple Modules.
+    """
+
+    curriculum = models.ForeignKey(
+        Curriculum,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="courses",
+        verbose_name=_("Curriculum"),
+        help_text=_("Parent curriculum containing this course."),
+    )
+    code = models.CharField(
+        _("Code"),
+        max_length=50,
+        blank=True,
+        default="",
+        help_text=_("Course code identifier, e.g. RWT-01."),
+    )
+    title = models.CharField(
+        _("Title"),
+        max_length=200,
+    )
+    title_kinyarwanda = models.CharField(
+        _("Title (Kinyarwanda)"),
+        max_length=200,
+        blank=True,
+        default="",
+    )
+    description = models.TextField(
+        _("Description"),
+        blank=True,
+    )
+    description_kinyarwanda = models.TextField(
+        _("Description (Kinyarwanda)"),
+        blank=True,
+        default="",
     )
     thumbnail = models.ImageField(
         _("Thumbnail"),
@@ -777,3 +920,227 @@ class LessonBookmark(BaseModel):
 
     def __str__(self) -> str:
         return f"{self.student.phone_number[-4:]} bookmarked '{self.lesson.title}'"
+
+
+# ===========================================================================
+# Quiz & QuizQuestionItem (Quiz Bank / Course Assessment Engine)
+# ===========================================================================
+
+class Quiz(BaseModel):
+    """
+    Comprehensive structured quiz linked to a Course or specific Module.
+    Authored and managed by Training Admins (full authoring & update flexibility)
+    and System Admins (curated bank assembly).
+    Features open dates, deadlines, rubrics, passing thresholds, and question items.
+    """
+    course = models.ForeignKey(
+        Course,
+        on_delete=models.CASCADE,
+        related_name="quizzes",
+        verbose_name=_("Course"),
+    )
+    module = models.ForeignKey(
+        Module,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="quizzes",
+        verbose_name=_("Module"),
+        help_text=_("Optional: link quiz directly to a specific module within the course."),
+    )
+    title = models.CharField(
+        _("Title (English)"),
+        max_length=200,
+    )
+    title_kinyarwanda = models.CharField(
+        _("Title (Kinyarwanda)"),
+        max_length=200,
+        blank=True,
+        default="",
+    )
+    description = models.TextField(
+        _("Description (English)"),
+        blank=True,
+        default="",
+    )
+    description_kinyarwanda = models.TextField(
+        _("Description (Kinyarwanda)"),
+        blank=True,
+        default="",
+    )
+    open_date = models.DateTimeField(
+        _("Open Date"),
+        null=True,
+        blank=True,
+        help_text=_("When the quiz unlocks for students. If published but open_date is in future, quiz remains scheduled."),
+    )
+    deadline = models.DateTimeField(
+        _("Deadline / Due Date"),
+        null=True,
+        blank=True,
+        help_text=_("When the quiz closes. Submissions after this date are blocked."),
+    )
+    time_limit_minutes = models.PositiveSmallIntegerField(
+        _("Time Limit (minutes)"),
+        default=0,
+        help_text=_("0 indicates no time limit."),
+    )
+    total_score = models.PositiveIntegerField(
+        _("Total Score / Points"),
+        default=100,
+        help_text=_("Total maximum achievable points for this quiz."),
+    )
+    passing_score = models.PositiveIntegerField(
+        _("Passing Score (%)"),
+        default=70,
+        help_text=_("Passing threshold percentage (e.g. 70%)."),
+    )
+    rubric = models.TextField(
+        _("Grading Rubric & Guidelines (English)"),
+        blank=True,
+        default="",
+        help_text=_("Comprehensive grading rubric, evaluation criteria, and instructions for students."),
+    )
+    rubric_kinyarwanda = models.TextField(
+        _("Grading Rubric & Guidelines (Kinyarwanda)"),
+        blank=True,
+        default="",
+    )
+    max_attempts = models.PositiveSmallIntegerField(
+        _("Maximum Attempts"),
+        default=1,
+        help_text=_("Number of attempts permitted (0 for unlimited)."),
+    )
+    shuffle_questions = models.BooleanField(
+        _("Shuffle Questions"),
+        default=False,
+    )
+    is_published = models.BooleanField(
+        _("Published"),
+        default=False,
+        db_index=True,
+    )
+    created_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_quizzes",
+        verbose_name=_("Created By"),
+    )
+
+    class Meta(BaseModel.Meta):
+        verbose_name = _("Quiz")
+        verbose_name_plural = _("Quizzes")
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.title} ({self.course.title})"
+
+    @property
+    def question_count(self) -> int:
+        return self.items.count()
+
+    @property
+    def calculated_total_points(self) -> int:
+        total = self.items.aggregate(total=models.Sum("points"))["total"]
+        return total if total is not None else self.total_score
+
+    @property
+    def status(self) -> str:
+        """
+        Dynamic status:
+        - 'DRAFT' if not published
+        - 'SCHEDULED' if published but open_date is in the future
+        - 'CLOSED' if deadline passed
+        - 'OPEN' if published and within window
+        """
+        if not self.is_published:
+            return "DRAFT"
+        now = timezone.now()
+        if self.open_date and self.open_date > now:
+            return "SCHEDULED"
+        if self.deadline and self.deadline < now:
+            return "CLOSED"
+        return "OPEN"
+
+
+class QuizQuestionItem(OrderedModel):
+    """
+    An individual question in a Quiz.
+    Can be pulled from the central QuizQuestion bank (original_question FK) with customizations,
+    or authored completely from scratch (original_question = None).
+    """
+    quiz = models.ForeignKey(
+        Quiz,
+        on_delete=models.CASCADE,
+        related_name="items",
+        verbose_name=_("Quiz"),
+    )
+    original_question = models.ForeignKey(
+        QuizQuestion,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="quiz_instances",
+        verbose_name=_("Source Bank Question"),
+        help_text=_("Reference to the bank question this was pulled from, if any."),
+    )
+    points = models.PositiveSmallIntegerField(
+        _("Points / Weight"),
+        default=1,
+    )
+    question_text = models.TextField(
+        _("Question (English)"),
+    )
+    question_text_kinyarwanda = models.TextField(
+        _("Question (Kinyarwanda)"),
+        blank=True,
+        default="",
+    )
+    option_a = models.CharField(_("Option A (English)"), max_length=500)
+    option_b = models.CharField(_("Option B (English)"), max_length=500)
+    option_c = models.CharField(_("Option C (English)"), max_length=500, blank=True, default="")
+    option_d = models.CharField(_("Option D (English)"), max_length=500, blank=True, default="")
+    option_a_kinyarwanda = models.CharField(_("Option A (Kinyarwanda)"), max_length=500, blank=True, default="")
+    option_b_kinyarwanda = models.CharField(_("Option B (Kinyarwanda)"), max_length=500, blank=True, default="")
+    option_c_kinyarwanda = models.CharField(_("Option C (Kinyarwanda)"), max_length=500, blank=True, default="")
+    option_d_kinyarwanda = models.CharField(_("Option D (Kinyarwanda)"), max_length=500, blank=True, default="")
+    correct_option = models.CharField(
+        _("Correct Option"),
+        max_length=1,
+        choices=CorrectOption.choices,
+        default=CorrectOption.A,
+    )
+    explanation = models.TextField(
+        _("Explanation (English)"),
+        blank=True,
+        default="",
+    )
+    explanation_kinyarwanda = models.TextField(
+        _("Explanation (Kinyarwanda)"),
+        blank=True,
+        default="",
+    )
+    domain = models.CharField(
+        _("Domain"),
+        max_length=20,
+        choices=QuizDomain.choices,
+        default=QuizDomain.PRIORITY,
+        db_index=True,
+    )
+    difficulty = models.CharField(
+        _("Difficulty"),
+        max_length=10,
+        choices=Difficulty.choices,
+        default=Difficulty.MEDIUM,
+        db_index=True,
+    )
+
+    class Meta(OrderedModel.Meta):
+        verbose_name = _("Quiz Question Item")
+        verbose_name_plural = _("Quiz Question Items")
+
+    def __str__(self) -> str:
+        return f"{self.quiz.title} - Q{self.sort_order}: {self.question_text[:60]}"
+

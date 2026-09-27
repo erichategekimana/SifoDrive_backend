@@ -46,6 +46,7 @@ from .views import (
     AdminUserDetailView,
     AdminUserRoleUpdateView,
     AdminUserStatusUpdateView,
+    AdminUserTutorAssignView,
     GuestRegistrationView,
     GuestUpgradeView,
     LoginView,
@@ -119,6 +120,7 @@ urlpatterns = [
     path("users/<uuid:user_id>/", AdminUserDetailView.as_view(), name="admin-user-detail"),
     path("users/<uuid:user_id>/role/", AdminUserRoleUpdateView.as_view(), name="admin-user-role"),
     path("users/<uuid:user_id>/status/", AdminUserStatusUpdateView.as_view(), name="admin-user-status"),
+    path("users/<uuid:user_id>/tutor/", AdminUserTutorAssignView.as_view(), name="admin-user-tutor"),
     path("admin/stats/", AdminDashboardStatsView.as_view(), name="admin-stats"),
     path("admin/analytics/", AdminPlatformAnalyticsView.as_view(), name="admin-analytics"),
 
