@@ -1,0 +1,202 @@
+from django.contrib.auth import get_user_model
+from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
+from rest_framework import serializers
+
+from apps.core.utils import generate_student_id, normalize_phone_number
+from apps.accounts.constants import AccountStatus, UserRole
+
+User = get_user_model()
+
+
+class AdminUserListSerializer(serializers.ModelSerializer):
+    """Compact user representation for admin list views."""
+    cohort_name = serializers.SerializerMethodField()
+    cohort_id = serializers.SerializerMethodField()
+    assigned_tutor_name = serializers.CharField(source="assigned_tutor.full_name", read_only=True, default=None)
+    assigned_tutor_id = serializers.CharField(source="assigned_tutor.id", read_only=True, default=None)
+    assigned_tutor_phone = serializers.CharField(source="assigned_tutor.phone_number", read_only=True, default=None)
+
+    def get_cohort_name(self, obj):
+        try:
+            first_cohort = obj.enrolled_cohorts.first()
+            return first_cohort.name if first_cohort else None
+        except Exception:
+            return None
+
+    def get_cohort_id(self, obj):
+        try:
+            first_cohort = obj.enrolled_cohorts.first()
+            return str(first_cohort.id) if first_cohort else None
+        except Exception:
+            return None
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "phone_number",
+            "full_name",
+            "email",
+            "role",
+            "status",
+            "student_id",
+            "cohort_name",
+            "cohort_id",
+            "assigned_tutor_name",
+            "assigned_tutor_id",
+            "assigned_tutor_phone",
+            "terms_of_service_accepted",
+            "privacy_policy_accepted",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+
+class AdminCreateUserSerializer(serializers.ModelSerializer):
+    """
+    Serializer for System Admin creating accounts for other roles:
+    TUTOR, ENTERPRISE_ADMIN, TRAINING_ADMIN, BOARD_REVIEWER, STUDENT, GUEST.
+    STRICT SECURITY RULE: Creating a SYSTEM_ADMIN account is prohibited.
+    """
+
+    password = serializers.CharField(
+        write_only=True,
+        required=True,
+        min_length=6,
+        help_text=_("Initial password for the created account."),
+    )
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "phone_number",
+            "first_name",
+            "last_name",
+            "email",
+            "role",
+            "password",
+            "school_name",
+            "station_quota",
+            "status",
+            "created_at",
+        ]
+        read_only_fields = ["id", "status", "created_at"]
+
+    def validate_phone_number(self, value: str) -> str:
+        normalized = normalize_phone_number(value)
+        if not normalized:
+            raise serializers.ValidationError(
+                _("Invalid Rwandan phone number. Must be in E.164 format (+250XXXXXXXXX).")
+            )
+        if User.objects.filter(phone_number=normalized).exists():
+            raise serializers.ValidationError(_("A user with this phone number already exists."))
+        return normalized
+
+    def validate_email(self, value: str) -> str:
+        if value and User.objects.filter(email=value).exists():
+            raise serializers.ValidationError(_("A user with this email address already exists."))
+        return value
+
+    def validate_role(self, value: str) -> str:
+        if value == UserRole.SYSTEM_ADMIN:
+            raise serializers.ValidationError(
+                _("Creating a SYSTEM_ADMIN account via this interface is prohibited. System administrators must be created via CLI 'python3 manage.py createsuperuser'.")
+            )
+        request = self.context.get("request")
+        if request and hasattr(request, "user") and request.user.is_authenticated:
+            if request.user.role == UserRole.TRAINING_ADMIN and value not in [UserRole.STUDENT, UserRole.GUEST, UserRole.TUTOR]:
+                raise serializers.ValidationError(
+                    _("Training administrators may only register students, guests, or tutors.")
+                )
+        return value
+
+    def create(self, validated_data: dict) -> User:
+        password = validated_data.pop("password")
+        role = validated_data.get("role", UserRole.GUEST)
+
+        student_id = None
+        if role == UserRole.STUDENT:
+            student_id = generate_student_id()
+
+        user = User.objects.create_user(
+            password=password,
+            status=AccountStatus.ACTIVE,
+            terms_of_service_accepted=True,
+            terms_of_service_accepted_at=timezone.now(),
+            privacy_policy_accepted=True,
+            privacy_policy_accepted_at=timezone.now(),
+            student_id=student_id,
+            **validated_data,
+        )
+        return user
+
+
+class AdminUserRoleUpdateSerializer(serializers.Serializer):
+    """
+    Serializer to update a user's role.
+    STRICT SECURITY RULE: Cannot promote anyone to SYSTEM_ADMIN.
+    """
+
+    role = serializers.ChoiceField(choices=UserRole.choices)
+
+    def validate_role(self, value: str) -> str:
+        if value == UserRole.SYSTEM_ADMIN:
+            raise serializers.ValidationError(
+                _("Promoting a user to SYSTEM_ADMIN via this interface is prohibited. System administrators must be managed via CLI.")
+            )
+        return value
+
+
+class AdminUserStatusUpdateSerializer(serializers.Serializer):
+    """
+    Serializer to activate, deactivate, suspend, or blacklist an account.
+    """
+
+    status = serializers.ChoiceField(
+        choices=[
+            AccountStatus.ACTIVE,
+            AccountStatus.DEACTIVATED,
+            AccountStatus.SUSPENDED,
+            AccountStatus.BLACKLISTED,
+        ]
+    )
+    reason = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+class AdminUserDetailSerializer(serializers.ModelSerializer):
+    """Full detail view for user inspection in the admin portal."""
+
+    has_national_id = serializers.SerializerMethodField()
+    assigned_tutor_name = serializers.CharField(source="assigned_tutor.full_name", read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "phone_number",
+            "full_name",
+            "first_name",
+            "last_name",
+            "email",
+            "role",
+            "status",
+            "is_active",
+            "student_id",
+            "school_name",
+            "station_quota",
+            "has_national_id",
+            "assigned_tutor_name",
+            "terms_of_service_accepted",
+            "terms_of_service_accepted_at",
+            "privacy_policy_accepted",
+            "privacy_policy_accepted_at",
+            "created_at",
+            "updated_at",
+            "last_login",
+        ]
+        read_only_fields = fields
+
+    def get_has_national_id(self, obj: User) -> bool:
+        return bool(obj.national_id_encrypted)
