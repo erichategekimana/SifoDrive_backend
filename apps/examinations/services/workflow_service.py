@@ -30,10 +30,17 @@ class ExamWorkflowService:
         notes: str = "",
     ) -> ExamSession:
         session = ExamSession.objects.get(id=session_id)
+        if session.status not in (ExamSessionStatus.SUBMITTED, ExamSessionStatus.BOARD_REVIEW):
+            raise ValueError(
+                f"Governance Lock: Cannot perform Board Review. Session is currently in '{session.status}' stage."
+            )
+        if decision.upper() == "APPROVE" and not (notes and notes.strip()):
+            raise ValueError("Board review comment is required to approve.")
+
         session.board_reviewer = reviewer
         session.board_reviewed_at = timezone.now()
         session.board_decision = decision.upper()
-        session.board_notes = notes
+        session.board_notes = notes.strip()
 
         if decision.upper() == "APPROVE":
             session.status = ExamSessionStatus.TRAINING_REVIEW
@@ -57,12 +64,16 @@ class ExamWorkflowService:
     ) -> ExamSession:
         session = ExamSession.objects.get(id=session_id)
         if session.status != ExamSessionStatus.TRAINING_REVIEW:
-            raise ValueError(f"Cannot perform Training Admin review: Session is currently in '{session.status}' stage.")
+            raise ValueError(
+                f"Governance Lock: Cannot perform Training Admin review: Session is currently in '{session.status}' stage."
+            )
+        if decision.upper() == "APPROVE" and not (notes and notes.strip()):
+            raise ValueError("Training audit comment is required to approve.")
 
         session.training_admin = reviewer
         session.training_reviewed_at = timezone.now()
         session.training_decision = decision.upper()
-        session.training_notes = notes
+        session.training_notes = notes.strip()
 
         if decision.upper() == "APPROVE":
             session.status = ExamSessionStatus.SYSTEM_REVIEW
@@ -99,7 +110,7 @@ class ExamWorkflowService:
 
         session.approved_by = system_admin
         session.approved_at = timezone.now()
-        session.approval_notes = notes
+        session.approval_notes = notes.strip() if notes else ""
         session.status = ExamSessionStatus.APPROVED
         session.save(update_fields=[
             "approved_by", "approved_at", "approval_notes", "status", "updated_at"

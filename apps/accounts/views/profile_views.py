@@ -72,3 +72,17 @@ class StudentProfileView(SuccessResponseMixin, generics.RetrieveUpdateAPIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return self.success_response(data=serializer.data, message="Student profile updated.")
+
+
+class StudentEligibilityView(SuccessResponseMixin, generics.GenericAPIView):
+    """
+    GET /api/v1/auth/me/student-profile/eligibility/
+    Evaluates 3-pillar criteria: tuition paid, live class attendance >= 75%, foundational modules 100%.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        from apps.accounts.services.student_service import StudentService
+        data = StudentService.check_exam_eligibility(request.user)
+        return self.success_response(data=data)
+

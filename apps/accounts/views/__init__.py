@@ -30,6 +30,7 @@ from apps.accounts.views.auth_views import (
 from apps.accounts.views.profile_views import (
     UserProfileView,
     StudentProfileView,
+    StudentEligibilityView,
 )
 
 # Admin user management
@@ -55,6 +56,29 @@ from apps.accounts.views.agent_views import (
     AgentFacilitateServiceView,
 )
 
+# Tutor / Instructor
+from apps.accounts.views.tutor_views import (
+    TutorStatsView,
+    TutorProfileView,
+    TutorStudentsListView,
+)
+
+# Enterprise / Driving School
+from apps.accounts.views.enterprise_views import (
+    EnterpriseStatsView,
+    EnterpriseProfileView,
+    EnterpriseStudentsListView,
+    EnterpriseBulkEnrollView,
+)
+
+# Board Reviewer / Integrity Examiner
+from apps.accounts.views.reviewer_views import (
+    ReviewerStatsView,
+    ReviewerProfileView,
+    ReviewerQueueView,
+    ReviewerCertifyView,
+)
+
 # Platform Analytics
 from apps.accounts.views.analytics_views import (
     AdminPlatformAnalyticsView,
@@ -71,9 +95,10 @@ __all__ = [
     "OTPVerifyView",
     "AcceptTermsOfServiceView",
     "AcceptPrivacyPolicyView",
-    # Profile
+    # Profile & Student
     "UserProfileView",
     "StudentProfileView",
+    "StudentEligibilityView",
     # Admin
     "UserListView",
     "AdminDashboardStatsView",
@@ -91,6 +116,20 @@ __all__ = [
     "AgentMonthlyPayoutView",
     "AgentOnboardClientView",
     "AgentFacilitateServiceView",
+    # Tutor
+    "TutorStatsView",
+    "TutorProfileView",
+    "TutorStudentsListView",
+    # Enterprise
+    "EnterpriseStatsView",
+    "EnterpriseProfileView",
+    "EnterpriseStudentsListView",
+    "EnterpriseBulkEnrollView",
+    # Reviewer
+    "ReviewerStatsView",
+    "ReviewerProfileView",
+    "ReviewerQueueView",
+    "ReviewerCertifyView",
     # Analytics
     "AdminPlatformAnalyticsView",
     "TIMEFRAME_PROFILES",

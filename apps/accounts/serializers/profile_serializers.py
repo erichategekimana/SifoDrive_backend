@@ -72,3 +72,12 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             "longest_streak_days",
             "last_activity_date",
         ]
+
+
+class StudentEligibilitySerializer(serializers.Serializer):
+    """Response serializer for 3-pillar student exam eligibility."""
+
+    eligible = serializers.BooleanField()
+    reasons = serializers.ListField(child=serializers.CharField())
+    criteria = serializers.DictField()
+

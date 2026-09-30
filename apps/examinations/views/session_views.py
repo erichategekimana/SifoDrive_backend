@@ -96,11 +96,17 @@ class AdminExamStageActionView(SuccessResponseMixin, APIView):
             is_superuser = getattr(request.user, "is_superuser", False)
 
             if action == "BOARD_DECISION":
-                if not (user_role in ("BOARD_REVIEWER", "SYSTEM_ADMIN") or is_superuser):
+                if not (user_role == "BOARD_REVIEWER" or is_superuser):
                     return self.error_response(
                         code="PERMISSION_DENIED",
-                        message="Only Board Reviewers (or System Administrators) can perform Stage 1 Board Reviews.",
+                        message="Only Board Reviewers can perform Stage 1 Board Reviews.",
                         status_code=status.HTTP_403_FORBIDDEN,
+                    )
+                if decision.upper() == "APPROVE" and not (notes and notes.strip()):
+                    return self.error_response(
+                        code="COMMENT_REQUIRED",
+                        message="A review comment is required when approving Stage 1.",
+                        status_code=status.HTTP_400_BAD_REQUEST,
                     )
                 session = ExamWorkflowService.board_review_decision(
                     session_id=str(session_id),
@@ -110,11 +116,17 @@ class AdminExamStageActionView(SuccessResponseMixin, APIView):
                 )
                 msg = f"Board review recorded: {decision}."
             elif action == "TRAINING_DECISION":
-                if not (user_role in ("TRAINING_ADMIN", "SYSTEM_ADMIN") or is_superuser):
+                if not (user_role == "TRAINING_ADMIN" or is_superuser):
                     return self.error_response(
                         code="PERMISSION_DENIED",
-                        message="Only Training Administrators (or System Administrators) can perform Stage 2 Pedagogical Reviews.",
+                        message="Only Training Administrators can perform Stage 2 Pedagogical Audits.",
                         status_code=status.HTTP_403_FORBIDDEN,
+                    )
+                if decision.upper() == "APPROVE" and not (notes and notes.strip()):
+                    return self.error_response(
+                        code="COMMENT_REQUIRED",
+                        message="An audit comment is required when approving Stage 2.",
+                        status_code=status.HTTP_400_BAD_REQUEST,
                     )
                 session = ExamWorkflowService.training_admin_review_decision(
                     session_id=str(session_id),
@@ -122,7 +134,7 @@ class AdminExamStageActionView(SuccessResponseMixin, APIView):
                     decision=decision,
                     notes=notes,
                 )
-                msg = f"Training Administrator review recorded: {decision}."
+                msg = f"Training Administrator audit recorded: {decision}."
             elif action == "SYSTEM_APPROVE":
                 if not (user_role == "SYSTEM_ADMIN" or is_superuser):
                     return self.error_response(
@@ -130,7 +142,6 @@ class AdminExamStageActionView(SuccessResponseMixin, APIView):
                         message="Only System Administrators can execute final approval and issue certificates.",
                         status_code=status.HTTP_403_FORBIDDEN,
                     )
-                # System Admin final approval
                 session = ExamWorkflowService.system_admin_approve(
                     session_id=str(session_id),
                     system_admin=request.user,
@@ -139,6 +150,33 @@ class AdminExamStageActionView(SuccessResponseMixin, APIView):
                 msg = "System Admin approved exam session. Certificate auto-generated successfully."
             elif action == "REJECT":
                 session = ExamSession.objects.get(id=session_id)
+                if session.status in (ExamSessionStatus.SUBMITTED, ExamSessionStatus.BOARD_REVIEW):
+                    if not (user_role == "BOARD_REVIEWER" or is_superuser):
+                        return self.error_response(
+                            code="PERMISSION_DENIED",
+                            message="Only Board Reviewers can reject during Stage 1.",
+                            status_code=status.HTTP_403_FORBIDDEN,
+                        )
+                elif session.status == ExamSessionStatus.TRAINING_REVIEW:
+                    if not (user_role == "TRAINING_ADMIN" or is_superuser):
+                        return self.error_response(
+                            code="PERMISSION_DENIED",
+                            message="Only Training Administrators can reject during Stage 2.",
+                            status_code=status.HTTP_403_FORBIDDEN,
+                        )
+                elif session.status == ExamSessionStatus.SYSTEM_REVIEW:
+                    if not (user_role == "SYSTEM_ADMIN" or is_superuser):
+                        return self.error_response(
+                            code="PERMISSION_DENIED",
+                            message="Only System Administrators can reject during Stage 3.",
+                            status_code=status.HTTP_403_FORBIDDEN,
+                        )
+                else:
+                    return self.error_response(
+                        code="INVALID_STATE",
+                        message=f"Cannot reject session in '{session.status}' state.",
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                    )
                 session.status = ExamSessionStatus.REJECTED
                 session.approval_notes = notes
                 session.save(update_fields=["status", "approval_notes", "updated_at"])

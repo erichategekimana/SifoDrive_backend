@@ -52,17 +52,29 @@ from .views import (
     AgentFacilitateServiceView,
     AgentMonthlyPayoutView,
     AgentOnboardClientView,
+    EnterpriseBulkEnrollView,
+    EnterpriseProfileView,
+    EnterpriseStatsView,
+    EnterpriseStudentsListView,
     GuestRegistrationView,
     GuestUpgradeView,
     LoginView,
     OTPRequestView,
     OTPVerifyView,
+    ReviewerCertifyView,
+    ReviewerProfileView,
+    ReviewerQueueView,
+    ReviewerStatsView,
     ServiceCommissionConfigView,
     StaffDetailView,
     StaffListCreateView,
     StaffOverviewMetricsView,
+    StudentEligibilityView,
     StudentProfileView,
     StudentRegistrationView,
+    TutorProfileView,
+    TutorStatsView,
+    TutorStudentsListView,
     UserListView,
     UserProfileView,
 )
@@ -105,10 +117,34 @@ urlpatterns = [
     path("consent/privacy-policy/", AcceptPrivacyPolicyView.as_view(), name="consent-privacy-policy"),
 
     # -------------------------------------------------------------------------
-    # Profile
+    # Profile & Student Hub
     # -------------------------------------------------------------------------
     path("me/", UserProfileView.as_view(), name="profile"),
     path("me/student-profile/", StudentProfileView.as_view(), name="student-profile"),
+    path("me/student-profile/eligibility/", StudentEligibilityView.as_view(), name="student-eligibility"),
+
+    # -------------------------------------------------------------------------
+    # Tutor / Instructor Facilitation
+    # -------------------------------------------------------------------------
+    path("tutor/stats/", TutorStatsView.as_view(), name="tutor-stats"),
+    path("tutor/profile/", TutorProfileView.as_view(), name="tutor-profile"),
+    path("tutor/students/", TutorStudentsListView.as_view(), name="tutor-students"),
+
+    # -------------------------------------------------------------------------
+    # Enterprise / Driving School
+    # -------------------------------------------------------------------------
+    path("enterprise/stats/", EnterpriseStatsView.as_view(), name="enterprise-stats"),
+    path("enterprise/profile/", EnterpriseProfileView.as_view(), name="enterprise-profile"),
+    path("enterprise/students/", EnterpriseStudentsListView.as_view(), name="enterprise-students"),
+    path("enterprise/students/bulk/", EnterpriseBulkEnrollView.as_view(), name="enterprise-bulk-students"),
+
+    # -------------------------------------------------------------------------
+    # Board Reviewer / Integrity Examiner
+    # -------------------------------------------------------------------------
+    path("reviewer/stats/", ReviewerStatsView.as_view(), name="reviewer-stats"),
+    path("reviewer/profile/", ReviewerProfileView.as_view(), name="reviewer-profile"),
+    path("reviewer/queue/", ReviewerQueueView.as_view(), name="reviewer-queue"),
+    path("reviewer/certify/", ReviewerCertifyView.as_view(), name="reviewer-certify"),
 
     # -------------------------------------------------------------------------
     # Admin
