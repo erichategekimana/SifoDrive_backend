@@ -51,8 +51,8 @@ def _is_content_staff(user) -> bool:
 
 
 def _is_admin(user) -> bool:
-    return user.is_authenticated and user.role in (
-        UserRole.TRAINING_ADMIN, UserRole.SYSTEM_ADMIN
+    return user.is_authenticated and (
+        user.is_superuser or user.role in (UserRole.TRAINING_ADMIN, UserRole.SYSTEM_ADMIN)
     )
 
 

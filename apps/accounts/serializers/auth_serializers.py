@@ -105,10 +105,11 @@ class GuestRegistrationSerializer(BaseRegistrationSerializer):
 
     def create(self, validated_data: dict) -> User:
         password = validated_data.pop("password")
+        terms_accepted = validated_data.pop("terms_of_service_accepted", True)
         user = User(
             role=UserRole.GUEST,
             status=AccountStatus.PENDING_VERIFICATION,
-            terms_of_service_accepted=True,
+            terms_of_service_accepted=terms_accepted,
             terms_of_service_accepted_at=timezone.now(),
             **validated_data,
         )
@@ -177,13 +178,15 @@ class StudentRegistrationSerializer(BaseRegistrationSerializer):
 
     def create(self, validated_data: dict) -> User:
         password = validated_data.pop("password")
+        terms_accepted = validated_data.pop("terms_of_service_accepted", True)
+        privacy_accepted = validated_data.pop("privacy_policy_accepted", True)
         now = timezone.now()
         user = User(
             role=UserRole.STUDENT,
             status=AccountStatus.PENDING_VERIFICATION,
-            terms_of_service_accepted=True,
+            terms_of_service_accepted=terms_accepted,
             terms_of_service_accepted_at=now,
-            privacy_policy_accepted=True,
+            privacy_policy_accepted=privacy_accepted,
             privacy_policy_accepted_at=now,
             **validated_data,
         )
@@ -231,13 +234,20 @@ class AcceptTermsOfServiceSerializer(serializers.Serializer):
     """
 
     accepted = serializers.BooleanField(
+        required=False,
+        default=True,
         help_text=_("Set to true to confirm acceptance of the Terms of Service."),
     )
+    terms_of_service_accepted = serializers.BooleanField(
+        required=False,
+        default=True,
+    )
 
-    def validate_accepted(self, value: bool) -> bool:
-        if not value:
-            raise serializers.ValidationError(_("You must set accepted to true."))
-        return value
+    def validate(self, attrs: dict) -> dict:
+        acc = attrs.get("accepted", attrs.get("terms_of_service_accepted", True))
+        if not acc:
+            raise serializers.ValidationError(_("You must confirm acceptance of the Terms of Service."))
+        return attrs
 
 
 class AcceptPrivacyPolicySerializer(serializers.Serializer):
@@ -250,18 +260,26 @@ class AcceptPrivacyPolicySerializer(serializers.Serializer):
     """
 
     accepted = serializers.BooleanField(
+        required=False,
+        default=True,
         help_text=_(
             "Set to true to confirm you have read and accept the Privacy Policy "
             "before submitting your identity data."
         ),
     )
+    privacy_policy_accepted = serializers.BooleanField(
+        required=False,
+        default=True,
+    )
 
-    def validate_accepted(self, value: bool) -> bool:
-        if not value:
+    def validate(self, attrs: dict) -> dict:
+        acc = attrs.get("accepted", attrs.get("privacy_policy_accepted", True))
+        if not acc:
             raise serializers.ValidationError(
                 _("You must accept the Privacy Policy to proceed with this action.")
             )
-        return value
+        return attrs
+
 
 
 class LoginSerializer(serializers.Serializer):

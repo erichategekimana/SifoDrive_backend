@@ -49,6 +49,11 @@ from .progress_serializers import (
     RecordQuizAttemptSerializer,
     ProgressSummarySerializer,
 )
+from .support_serializers import (
+    HelpTicketSerializer,
+    HelpTicketCreateSerializer,
+    HelpTicketResolveSerializer,
+)
 
 __all__ = [
     # Road Sign
@@ -87,4 +92,9 @@ __all__ = [
     "QuizListSerializer",
     "QuizDetailSerializer",
     "QuizWriteSerializer",
+    # Support
+    "HelpTicketSerializer",
+    "HelpTicketCreateSerializer",
+    "HelpTicketResolveSerializer",
 ]
+

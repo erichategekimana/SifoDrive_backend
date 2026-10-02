@@ -81,6 +81,8 @@ from .views import (
     CurriculumPublishView,
     CurriculumUnpublishView,
     CurriculumUpdateView,
+    HelpTicketDetailView,
+    HelpTicketListCreateView,
     LessonCreateView,
     LessonDeleteView,
     LessonDetailView,
@@ -111,6 +113,23 @@ from .views import (
     RoadSignDetailView,
     RoadSignListView,
     RoadSignUpdateView,
+    SupportAnnouncementsView,
+    AdminTutorsListView,
+    AdminTutorCurriculaAssignmentView,
+    AdminTutorCoursesAssignmentView,
+    TutorAssignedCohortsListView,
+    TutorCohortCoursesListView,
+    TutorCohortModulesView,
+    TutorCohortModuleReleaseUpdateView,
+    TutorCohortQuizzesView,
+    TutorCohortQuizScheduleView,
+    TutorCohortQuizExtendView,
+    TutorCohortActivitiesListCreateView,
+    TutorCohortActivityDetailUpdateDeleteView,
+    TutorCohortActivitySubmissionsListView,
+    TutorCohortActivityGradeSubmissionView,
+    StudentCohortActivitiesListView,
+    StudentCohortActivitySubmitView,
 )
 
 app_name = "lms"
@@ -184,4 +203,33 @@ urlpatterns = [
     path("bookmarks/",            BookmarkListView.as_view(),   name="bookmark-list"),
     path("bookmarks/add/",        BookmarkCreateView.as_view(), name="bookmark-create"),
     path("bookmarks/<uuid:pk>/",  BookmarkDeleteView.as_view(), name="bookmark-delete"),
+
+    # ── Support & Help Tickets ────────────────────────────────────────────────
+    path("support/tickets/",                HelpTicketListCreateView.as_view(),  name="support-tickets"),
+    path("support/tickets/<uuid:id>/",      HelpTicketDetailView.as_view(),      name="support-ticket-detail"),
+    path("support/announcements/",          SupportAnnouncementsView.as_view(),  name="support-announcements"),
+
+    # ── Training Admin: Tutor Assignments ─────────────────────────────────────
+    path("admin/tutors/",                   AdminTutorsListView.as_view(),                name="admin-tutors-list"),
+    path("admin/tutors/<uuid:tutor_id>/curricula/", AdminTutorCurriculaAssignmentView.as_view(), name="admin-tutor-curricula"),
+    path("admin/tutors/<uuid:tutor_id>/courses/",   AdminTutorCoursesAssignmentView.as_view(),   name="admin-tutor-courses"),
+
+    # ── Tutor LMS Studio: Cohort Material Controls ───────────────────────────
+    path("tutor/cohorts/",                                              TutorAssignedCohortsListView.as_view(),        name="tutor-cohorts-list"),
+    path("tutor/cohorts/<uuid:cohort_id>/courses/",                     TutorCohortCoursesListView.as_view(),          name="tutor-cohort-courses"),
+    path("tutor/cohorts/<uuid:cohort_id>/courses/<uuid:course_id>/modules/", TutorCohortModulesView.as_view(),         name="tutor-cohort-modules"),
+    path("tutor/cohorts/<uuid:cohort_id>/modules/<uuid:module_id>/release/", TutorCohortModuleReleaseUpdateView.as_view(), name="tutor-cohort-module-release"),
+    path("tutor/cohorts/<uuid:cohort_id>/courses/<uuid:course_id>/quizzes/", TutorCohortQuizzesView.as_view(),         name="tutor-cohort-quizzes"),
+    path("tutor/cohorts/<uuid:cohort_id>/quizzes/<uuid:quiz_id>/schedule/", TutorCohortQuizScheduleView.as_view(),   name="tutor-cohort-quiz-schedule"),
+    path("tutor/cohorts/<uuid:cohort_id>/quizzes/<uuid:quiz_id>/extend/",   TutorCohortQuizExtendView.as_view(),       name="tutor-cohort-quiz-extend"),
+
+    # ── Cohort Activities & Submissions ──────────────────────────────────────
+    path("tutor/cohorts/<uuid:cohort_id>/activities/",                  TutorCohortActivitiesListCreateView.as_view(),        name="tutor-cohort-activities"),
+    path("tutor/cohorts/<uuid:cohort_id>/activities/<uuid:activity_id>/", TutorCohortActivityDetailUpdateDeleteView.as_view(), name="tutor-cohort-activity-detail"),
+    path("tutor/cohorts/<uuid:cohort_id>/activities/<uuid:activity_id>/submissions/", TutorCohortActivitySubmissionsListView.as_view(), name="tutor-cohort-activity-submissions"),
+    path("tutor/cohorts/<uuid:cohort_id>/activities/<uuid:activity_id>/submissions/<uuid:submission_id>/grade/", TutorCohortActivityGradeSubmissionView.as_view(), name="tutor-cohort-activity-grade"),
+    path("cohorts/<uuid:cohort_id>/activities/",                       StudentCohortActivitiesListView.as_view(),            name="student-cohort-activities"),
+    path("cohorts/activities/",                                        StudentCohortActivitiesListView.as_view(),            name="student-cohort-activities-all"),
+    path("cohorts/<uuid:cohort_id>/activities/<uuid:activity_id>/submit/", StudentCohortActivitySubmitView.as_view(),       name="student-cohort-activity-submit"),
 ]
+

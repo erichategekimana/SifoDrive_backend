@@ -73,3 +73,36 @@ from apps.lms.views.progress_views import (  # noqa: F401
     BookmarkCreateView,
     BookmarkDeleteView,
 )
+
+from apps.lms.views.support_views import (  # noqa: F401
+    HelpTicketListCreateView,
+    HelpTicketDetailView,
+    SupportAnnouncementsView,
+)
+
+from apps.lms.views.tutor_assignment_views import (  # noqa: F401
+    AdminTutorsListView,
+    AdminTutorCurriculaAssignmentView,
+    AdminTutorCoursesAssignmentView,
+)
+
+from apps.lms.views.cohort_material_views import (  # noqa: F401
+    TutorAssignedCohortsListView,
+    TutorCohortCoursesListView,
+    TutorCohortModulesView,
+    TutorCohortModuleReleaseUpdateView,
+    TutorCohortQuizzesView,
+    TutorCohortQuizScheduleView,
+    TutorCohortQuizExtendView,
+)
+
+from apps.lms.views.activity_views import (  # noqa: F401
+    TutorCohortActivitiesListCreateView,
+    TutorCohortActivityDetailUpdateDeleteView,
+    TutorCohortActivitySubmissionsListView,
+    TutorCohortActivityGradeSubmissionView,
+    StudentCohortActivitiesListView,
+    StudentCohortActivitySubmitView,
+)
+
+

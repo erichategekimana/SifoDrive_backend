@@ -116,10 +116,42 @@ class User(AbstractBaseUser, PermissionsMixin, UUIDModel, TimeStampedModel):
         null=True,
         blank=True,
     )
+    biography = models.TextField(
+        _("Biography"),
+        blank=True,
+        default="",
+        help_text=_("Short user bio displayed on their Canvas profile."),
+    )
+    links = models.JSONField(
+        _("Profile Links"),
+        default=list,
+        blank=True,
+        help_text=_("List of external links/portfolios (title and url)."),
+    )
+    contact_methods = models.JSONField(
+        _("Ways to Contact"),
+        default=list,
+        blank=True,
+        help_text=_("Additional contact methods (email, secondary phone, linkedin, etc)."),
+    )
     date_of_birth = models.DateField(
         _("Date of Birth"),
         null=True,
         blank=True,
+    )
+
+    # --- Security & 2FA ---
+    two_factor_enabled = models.BooleanField(
+        _("Two-Factor Authentication Enabled"),
+        default=False,
+        help_text=_("Require OTP verification code when logging in."),
+    )
+    two_factor_method = models.CharField(
+        _("Two-Factor Method"),
+        max_length=10,
+        choices=[("phone", "Phone SMS"), ("email", "Email")],
+        default="phone",
+        help_text=_("Channel to receive login OTP (phone or email)."),
     )
 
     # --- Consent (NCSA Compliance) ---

@@ -108,11 +108,14 @@ class Curriculum(OrderedModel):
         self.save(update_fields=["is_published", "published_at", "published_by", "updated_at"])
 
     def unpublish(self) -> None:
-        """Pull curriculum back to draft state. Idempotent."""
+        """Pull curriculum back to draft state. Cascades unpublish to child courses."""
         if not self.is_published:
             return
         self.is_published = False
         self.save(update_fields=["is_published", "updated_at"])
+        # Child courses cannot remain published under an unpublished curriculum
+        for course in self.courses.filter(is_published=True):
+            course.unpublish()
 
 
 class Course(OrderedModel):
@@ -218,7 +221,12 @@ class Course(OrderedModel):
     # ── Lifecycle methods ────────────────────────────────────────────────────
 
     def publish(self, published_by=None) -> None:
-        """Make this course live. Idempotent."""
+        """Make this course live. Requires parent curriculum to be published."""
+        if self.curriculum and not self.curriculum.is_published:
+            from django.core.exceptions import ValidationError
+            raise ValidationError(
+                f"Cannot publish course '{self.title}' because parent curriculum '{self.curriculum.title}' is not published."
+            )
         if self.is_published:
             return
         self.is_published = True
@@ -233,3 +241,4 @@ class Course(OrderedModel):
             return
         self.is_published = False
         self.save(update_fields=["is_published", "updated_at"])
+

@@ -91,6 +91,17 @@ class Module(OrderedModel):
         ),
     )
 
+    # ── Access control flags ─────────────────────────────────────────────────
+    is_student_only = models.BooleanField(
+        _("Student Only"),
+        default=False,
+        db_index=True,
+        help_text=_(
+            "If True, this module is only available to registered students and staff. "
+            "Guests cannot view this module."
+        ),
+    )
+
     # ── Publish lifecycle ────────────────────────────────────────────────────
     is_published = models.BooleanField(_("Published"), default=False, db_index=True)
     published_at = models.DateTimeField(_("Published At"), null=True, blank=True)

@@ -172,3 +172,37 @@ class TestReviewerAccounts:
         data = response.data["data"]
         assert "reviewer_code" in data
         assert "pending_queue_count" in data
+
+
+@pytest.mark.django_db
+class TestRegistrationEndpoints:
+    def test_student_registration_success(self, api_client):
+        payload = {
+            "first_name": "Kezia",
+            "last_name": "Uwera",
+            "phone_number": "+250788999888",
+            "password": "SecurePassword123!",
+            "terms_of_service_accepted": True,
+            "privacy_policy_accepted": True,
+        }
+        response = api_client.post("/api/v1/auth/register/student/", data=payload, format="json")
+        assert response.status_code == status.HTTP_201_CREATED
+        created_user = User.objects.get(phone_number="+250788999888")
+        assert created_user.role == UserRole.STUDENT
+        assert created_user.terms_of_service_accepted is True
+        assert created_user.privacy_policy_accepted is True
+
+    def test_guest_registration_success(self, api_client):
+        payload = {
+            "first_name": "Sam",
+            "last_name": "Rwanda",
+            "phone_number": "+250788777666",
+            "password": "SecurePassword123!",
+            "terms_of_service_accepted": True,
+        }
+        response = api_client.post("/api/v1/auth/register/guest/", data=payload, format="json")
+        assert response.status_code == status.HTTP_201_CREATED
+        created_user = User.objects.get(phone_number="+250788777666")
+        assert created_user.role == UserRole.GUEST
+        assert created_user.terms_of_service_accepted is True
+

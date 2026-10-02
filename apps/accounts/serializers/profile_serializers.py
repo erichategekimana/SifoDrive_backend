@@ -15,6 +15,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(read_only=True)
     has_accepted_terms = serializers.BooleanField(read_only=True)
     has_accepted_privacy_policy = serializers.BooleanField(read_only=True)
+    terms_accepted = serializers.BooleanField(source="has_accepted_terms", read_only=True)
+    privacy_accepted = serializers.BooleanField(source="has_accepted_privacy_policy", read_only=True)
 
     class Meta:
         model = User
@@ -29,14 +31,22 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "status",
             "student_id",
             "profile_photo",
+            "biography",
+            "links",
+            "contact_methods",
+            "two_factor_enabled",
+            "two_factor_method",
             "date_of_birth",
             # Consent state (read-only; use /consent/ endpoints to change)
             "has_accepted_terms",
             "has_accepted_privacy_policy",
+            "terms_accepted",
+            "privacy_accepted",
             "terms_of_service_accepted_at",
             "privacy_policy_accepted_at",
             "created_at",
             "last_login",
+            "last_login_ip",
         ]
         read_only_fields = [
             "id",
@@ -46,11 +56,15 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "student_id",
             "has_accepted_terms",
             "has_accepted_privacy_policy",
+            "terms_accepted",
+            "privacy_accepted",
             "terms_of_service_accepted_at",
             "privacy_policy_accepted_at",
             "created_at",
             "last_login",
+            "last_login_ip",
         ]
+
 
 
 class StudentProfileSerializer(serializers.ModelSerializer):

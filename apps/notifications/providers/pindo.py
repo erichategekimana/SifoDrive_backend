@@ -146,18 +146,18 @@ class PindoSMSProvider(BaseSMSProvider):
             "Authorization": f"Bearer {self.api_token}",
             "Accept": "application/json",
         }
+        base_url = (getattr(settings, "SMS_GATEWAY_URL", "") or self.DEFAULT_BASE_URL).rstrip("/")
+        check_url = f"{base_url}/v1/sms/inbounds"
         try:
-            resp = requests.get(self.endpoint_url, headers=headers, timeout=6.0)
+            resp = requests.get(check_url, headers=headers, timeout=6.0)
             if resp.status_code == 200:
                 data = resp.json() if resp.content else {}
-                messages_count = len(data.get("sms", []))
                 return {
                     "connected": True,
                     "provider": "PINDO",
                     "status_code": resp.status_code,
-                    "endpoint": self.endpoint_url,
+                    "endpoint": check_url,
                     "sender_id": getattr(settings, "SMS_SENDER_ID", "PindoTest"),
-                    "recent_outbound_count": messages_count,
                     "message": "Pindo Gateway connected and authenticated.",
                 }
             else:

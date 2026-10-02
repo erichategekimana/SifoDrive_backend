@@ -60,7 +60,15 @@ class ContentGateService:
             return True
 
         # Draft content: invisible to learners
-        if not lesson.module.is_published or not lesson.module.course.is_published:
+        if (
+            not lesson.module.is_published
+            or not lesson.module.course.is_published
+            or (lesson.module.course.curriculum and not lesson.module.course.curriculum.is_published)
+        ):
+            return False
+
+        # If parent module is student only, block non-students
+        if getattr(lesson.module, "is_student_only", False) and user.role != UserRole.STUDENT:
             return False
 
         # Free preview: anyone (even unauthenticated)
@@ -81,29 +89,72 @@ class ContentGateService:
     def get_visible_courses(cls, user) -> QuerySet:
         """
         Return the Course queryset appropriate for the requesting user.
-        Staff see all courses; learners see only published ones.
+        - Staff & Training/System Admins see all non-deleted courses.
+        - Tutors see courses actively assigned to them by Training Admin.
+        - Students see courses assigned to the active tutors of their enrolled cohort(s).
+        - Guests & unauthenticated users see published courses from published curricula.
         """
         from apps.accounts.constants import UserRole
+        from apps.accounts.models import User
         from .models import Course
 
-        if user and user.is_authenticated and (
-            user.is_staff
-            or user.is_superuser
-            or user.role in (
-                UserRole.TUTOR,
-                UserRole.TRAINING_ADMIN,
-                UserRole.SYSTEM_ADMIN,
+        if not user or not user.is_authenticated:
+            return Course.objects.filter(
+                is_published=True,
+                is_deleted=False,
+                curriculum__is_published=True,
+                curriculum__is_deleted=False,
             )
+
+        if user.is_staff or user.is_superuser or user.role in (
+            UserRole.SYSTEM_ADMIN,
+            UserRole.TRAINING_ADMIN,
+            UserRole.BOARD_REVIEWER,
         ):
             return Course.objects.filter(is_deleted=False)
 
-        return Course.objects.filter(is_published=True, is_deleted=False)
+        if user.role == UserRole.TUTOR:
+            return Course.objects.filter(
+                is_deleted=False,
+                is_published=True,
+                curriculum__is_published=True,
+                curriculum__is_deleted=False,
+                tutor_assignments__tutor=user,
+                tutor_assignments__is_active=True,
+            ).distinct()
+
+        if user.role == UserRole.STUDENT:
+            cohorts = user.enrolled_cohorts.filter(is_active=True)
+            if not cohorts.exists():
+                return Course.objects.none()
+
+            cohort_tutors = User.objects.filter(
+                assigned_cohorts__in=cohorts,
+                is_active=True,
+            )
+            return Course.objects.filter(
+                is_deleted=False,
+                is_published=True,
+                curriculum__is_published=True,
+                curriculum__is_deleted=False,
+                tutor_assignments__tutor__in=cohort_tutors,
+                tutor_assignments__is_active=True,
+            ).distinct()
+
+        # Default fallback for GUEST and other roles
+        return Course.objects.filter(
+            is_published=True,
+            is_deleted=False,
+            curriculum__is_published=True,
+            curriculum__is_deleted=False,
+        )
 
     @classmethod
     def get_visible_modules(cls, course, user) -> QuerySet:
         """
         Return modules of a course visible to this user.
         Staff see all; learners see only published modules.
+        Guests and unauthenticated users see only modules that are not student-only.
         """
         from apps.accounts.constants import UserRole
 
@@ -116,31 +167,57 @@ class ContentGateService:
                 UserRole.TUTOR,
                 UserRole.TRAINING_ADMIN,
                 UserRole.SYSTEM_ADMIN,
+                UserRole.BOARD_REVIEWER,
             )
         ):
             return qs
 
-        return qs.filter(is_published=True)
+        # If parent course or parent curriculum is not published, learners cannot view modules
+        if not course.is_published or (course.curriculum and not course.curriculum.is_published):
+            return course.modules.none()
+
+        qs = qs.filter(is_published=True)
+
+        # Guests and anonymous users cannot see student-only modules
+        if not (user and user.is_authenticated) or user.role == UserRole.GUEST:
+            qs = qs.filter(is_student_only=False)
+
+        return qs
 
     @classmethod
     def get_visible_lessons(cls, module, user) -> QuerySet:
         """
-        Return lessons of a module visible to this user, applying the
-        is_student_only filter where needed.
+        Return lessons of a module visible to this user, applying both
+        module-level and lesson-level is_student_only filtering.
         """
         from apps.accounts.constants import UserRole
         from .models import Lesson
 
         qs = module.lessons.filter(is_deleted=False)
 
+        is_staff = user and user.is_authenticated and (
+            user.is_staff
+            or user.is_superuser
+            or user.role in (
+                UserRole.TUTOR,
+                UserRole.TRAINING_ADMIN,
+                UserRole.SYSTEM_ADMIN,
+                UserRole.BOARD_REVIEWER,
+            )
+        )
+        if is_staff:
+            return qs
+
+        # If the parent module is student only, guests cannot see any of its lessons
+        is_student = user and user.is_authenticated and user.role == UserRole.STUDENT
+        if getattr(module, "is_student_only", False) and not is_student:
+            return qs.none()
+
         if not (user and user.is_authenticated):
             return qs.filter(is_free_preview=True)
 
-        if user.role in (UserRole.TUTOR, UserRole.TRAINING_ADMIN, UserRole.SYSTEM_ADMIN, UserRole.BOARD_REVIEWER):
-            return qs
-
-        if user.role == UserRole.STUDENT:
-            return qs  # Students see everything
+        if is_student:
+            return qs  # Students see all published lessons
 
         # Guest: exclude student-only lessons
         return qs.filter(is_student_only=False)
@@ -384,6 +461,16 @@ class CourseService:
 
         Raises ValueError if the course has no published modules.
         """
+        from .models import Course
+
+        if not isinstance(course, Course):
+            course = Course.objects.select_related("curriculum").get(id=course)
+
+        if course.curriculum and not course.curriculum.is_published:
+            raise ValueError(
+                f"Cannot publish course '{course.title}' because its parent curriculum '{course.curriculum.title}' is not published. A course cannot be published under an unpublished curriculum."
+            )
+
         total_modules = course.modules.filter(is_deleted=False).count()
         if total_modules == 0:
             raise ValueError(
@@ -476,3 +563,285 @@ class CourseService:
             "total_questions":    question_count,
             "active_students":    active_students,
         }
+
+
+# ===========================================================================
+# TutorAssignmentService — Curricula and Courses assignment to Tutors
+# ===========================================================================
+
+class TutorAssignmentService:
+    """
+    Manages accreditation and course assignments for tutors by Training Admin.
+    Enforces the hierarchy:
+      1. Training Admin assigns Curricula to Tutor.
+      2. Training Admin assigns Courses from those Curricula to Tutor.
+         (Cannot assign course if parent curriculum is not assigned to this tutor).
+    """
+
+    @classmethod
+    @transaction.atomic
+    def assign_curricula_to_tutor(cls, tutor, curriculum_ids: list, assigned_by=None) -> list:
+        from apps.accounts.constants import UserRole
+        from apps.accounts.models import User
+        from .models import Curriculum, TutorCurriculumAssignment, TutorCourseAssignment
+
+        if isinstance(tutor, (str, int)):
+            tutor = User.objects.get(id=tutor)
+
+        if tutor.role != UserRole.TUTOR and not tutor.is_staff:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError(f"User {tutor.phone_number} is not a tutor.")
+
+        curricula = Curriculum.objects.filter(id__in=curriculum_ids, is_deleted=False)
+        valid_ids = set(curricula.values_list("id", flat=True))
+
+        # Deactivate unselected assignments
+        TutorCurriculumAssignment.objects.filter(tutor=tutor, is_active=True).exclude(
+            curriculum_id__in=valid_ids
+        ).update(is_active=False)
+
+        # Deactivate courses whose curricula were removed
+        TutorCourseAssignment.objects.filter(
+            tutor=tutor, is_active=True
+        ).exclude(course__curriculum_id__in=valid_ids).update(is_active=False)
+
+        # Activate or create selected assignments
+        assigned = []
+        for curr in curricula:
+            assignment, _ = TutorCurriculumAssignment.objects.update_or_create(
+                tutor=tutor,
+                curriculum=curr,
+                defaults={"is_active": True, "assigned_by": assigned_by},
+            )
+            assigned.append(assignment)
+
+        logger.info(
+            "Curricula assigned | tutor=%s count=%d by=%s",
+            tutor.id, len(assigned), getattr(assigned_by, "id", None)
+        )
+        return assigned
+
+    @classmethod
+    @transaction.atomic
+    def assign_courses_to_tutor(cls, tutor, course_ids: list, assigned_by=None) -> list:
+        from rest_framework.exceptions import ValidationError
+        from apps.accounts.constants import UserRole
+        from apps.accounts.models import User
+        from .models import Course, TutorCurriculumAssignment, TutorCourseAssignment
+
+        if isinstance(tutor, (str, int)):
+            tutor = User.objects.get(id=tutor)
+
+        if tutor.role != UserRole.TUTOR and not tutor.is_staff:
+            raise ValidationError(f"User {tutor.phone_number} is not a tutor.")
+
+        active_curr_ids = set(
+            TutorCurriculumAssignment.objects.filter(
+                tutor=tutor, is_active=True, is_deleted=False
+            ).values_list("curriculum_id", flat=True)
+        )
+
+        courses = Course.objects.filter(id__in=course_ids, is_deleted=False).select_related("curriculum")
+        valid_courses = []
+
+        for crs in courses:
+            if crs.curriculum_id not in active_curr_ids:
+                curr_title = crs.curriculum.title if crs.curriculum else "Unknown"
+                raise ValidationError(
+                    f"Cannot assign course '{crs.title}' to tutor '{tutor.full_name or tutor.phone_number}' "
+                    f"because its parent curriculum '{curr_title}' is not assigned to this tutor. "
+                    f"Please assign the curriculum to this tutor first."
+                )
+            valid_courses.append(crs)
+
+        valid_course_ids = {c.id for c in valid_courses}
+
+        # Deactivate unselected courses
+        TutorCourseAssignment.objects.filter(tutor=tutor, is_active=True).exclude(
+            course_id__in=valid_course_ids
+        ).update(is_active=False)
+
+        assigned = []
+        for crs in valid_courses:
+            assignment, _ = TutorCourseAssignment.objects.update_or_create(
+                tutor=tutor,
+                course=crs,
+                defaults={"is_active": True, "assigned_by": assigned_by},
+            )
+            assigned.append(assignment)
+
+        logger.info(
+            "Courses assigned | tutor=%s count=%d by=%s",
+            tutor.id, len(assigned), getattr(assigned_by, "id", None)
+        )
+        return assigned
+
+
+# ===========================================================================
+# CohortMaterialService — Cohort Module release & Quiz scheduling
+# ===========================================================================
+
+class CohortMaterialService:
+    """
+    Manages cohort-specific module releases, locking, and quiz schedules.
+    Operated by Tutors per selected Cohort.
+    """
+
+    @classmethod
+    @transaction.atomic
+    def update_cohort_module_release(
+        cls, cohort, module, is_published: bool, is_locked: bool = False, unlock_date=None, user=None
+    ):
+        from .models import CohortModuleRelease
+        release, _ = CohortModuleRelease.objects.update_or_create(
+            cohort=cohort,
+            module=module,
+            defaults={
+                "is_published": is_published,
+                "is_locked": is_locked,
+                "unlock_date": unlock_date,
+                "updated_by": user,
+            },
+        )
+        return release
+
+    @classmethod
+    @transaction.atomic
+    def schedule_cohort_quiz(
+        cls, cohort, quiz, open_date=None, deadline=None, is_published=True, is_locked=False, user=None
+    ):
+        from rest_framework.exceptions import PermissionDenied
+        from apps.accounts.constants import UserRole
+        from .models import CohortQuizSchedule
+
+        if not quiz.allow_tutor_scheduling and user and user.role == UserRole.TUTOR:
+            raise PermissionDenied(
+                "Training Admin has restricted scheduling for this quiz to a global schedule."
+            )
+
+        schedule, _ = CohortQuizSchedule.objects.update_or_create(
+            cohort=cohort,
+            quiz=quiz,
+            defaults={
+                "open_date": open_date,
+                "deadline": deadline,
+                "is_published": is_published,
+                "is_locked": is_locked,
+                "scheduled_by": user,
+            },
+        )
+        return schedule
+
+    @classmethod
+    @transaction.atomic
+    def extend_cohort_quiz_deadline(cls, cohort, quiz, extended_deadline, reason="", user=None):
+        from .models import CohortQuizSchedule
+        schedule, _ = CohortQuizSchedule.objects.get_or_create(
+            cohort=cohort,
+            quiz=quiz,
+            defaults={"is_published": True, "scheduled_by": user},
+        )
+        schedule.extended_deadline = extended_deadline
+        schedule.extension_reason = reason
+        schedule.scheduled_by = user
+        schedule.save(update_fields=["extended_deadline", "extension_reason", "scheduled_by", "updated_at"])
+        return schedule
+
+
+# ===========================================================================
+# CohortActivityService — Tutor Activity creation, submission, and grading
+# ===========================================================================
+
+class CohortActivityService:
+    """
+    Manages custom learning activities, homework assignments, and drills created by Tutors.
+    """
+
+    @classmethod
+    @transaction.atomic
+    def create_activity(
+        cls,
+        cohort,
+        course,
+        module=None,
+        title="",
+        description="",
+        title_kinyarwanda="",
+        description_kinyarwanda="",
+        activity_type="ASSIGNMENT",
+        submission_type="TEXT_RESPONSE",
+        total_points=100,
+        passing_points=70,
+        due_date=None,
+        allow_late_submission=False,
+        is_published=True,
+        is_locked=False,
+        tutor=None,
+    ):
+        from .models import CohortActivity
+        activity = CohortActivity.objects.create(
+            cohort=cohort,
+            course=course,
+            module=module,
+            title=title,
+            description=description,
+            title_kinyarwanda=title_kinyarwanda,
+            description_kinyarwanda=description_kinyarwanda,
+            activity_type=activity_type,
+            submission_type=submission_type,
+            total_points=total_points,
+            passing_points=passing_points,
+            due_date=due_date,
+            allow_late_submission=allow_late_submission,
+            is_published=is_published,
+            is_locked=is_locked,
+            created_by=tutor,
+        )
+        return activity
+
+    @classmethod
+    @transaction.atomic
+    def submit_activity(cls, activity, student, submission_text="", attachment=None):
+        from rest_framework.exceptions import ValidationError
+        from django.utils import timezone
+        from .models import StudentActivitySubmission
+
+        if not activity.cohort.students.filter(id=student.id).exists():
+            raise ValidationError("You are not enrolled in this cohort.")
+
+        if not activity.is_published or activity.is_locked:
+            raise ValidationError("This activity is currently locked or not available.")
+
+        now = timezone.now()
+        if activity.due_date and activity.due_date < now and not activity.allow_late_submission:
+            raise ValidationError("Submissions are closed. The due date has passed.")
+
+        defaults = {
+            "submission_text": submission_text,
+            "status": StudentActivitySubmission.SubmissionStatus.SUBMITTED,
+            "submitted_at": now,
+        }
+        if attachment:
+            defaults["attachment"] = attachment
+
+        submission, _ = StudentActivitySubmission.objects.update_or_create(
+            activity=activity,
+            student=student,
+            defaults=defaults,
+        )
+        return submission
+
+    @classmethod
+    @transaction.atomic
+    def grade_submission(cls, submission, score, feedback="", tutor=None):
+        from django.utils import timezone
+        from .models import StudentActivitySubmission
+
+        submission.score = score
+        submission.tutor_feedback = feedback
+        submission.status = StudentActivitySubmission.SubmissionStatus.GRADED
+        submission.graded_by = tutor
+        submission.graded_at = timezone.now()
+        submission.save(update_fields=["score", "tutor_feedback", "status", "graded_by", "graded_at", "updated_at"])
+        return submission
+

@@ -16,8 +16,12 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from .models import (
+    CohortActivity,
+    CohortModuleRelease,
+    CohortQuizSchedule,
     Course,
     Curriculum,
+    HelpTicket,
     Lesson,
     LessonBookmark,
     LessonQuestion,
@@ -26,7 +30,10 @@ from .models import (
     QuizQuestion,
     QuizQuestionItem,
     RoadSign,
+    StudentActivitySubmission,
     StudentProgress,
+    TutorCourseAssignment,
+    TutorCurriculumAssignment,
 )
 
 
@@ -493,4 +500,70 @@ class QuizQuestionItemAdmin(admin.ModelAdmin):
     list_display = ["quiz", "sort_order", "question_text", "correct_option", "points", "domain", "difficulty"]
     list_filter = ["quiz", "domain", "difficulty"]
     search_fields = ["question_text", "question_text_kinyarwanda", "quiz__title"]
+
+
+@admin.register(HelpTicket)
+class HelpTicketAdmin(admin.ModelAdmin):
+    list_display = ["subject", "user", "recipient_role", "category", "priority", "status", "assigned_to", "created_at"]
+    list_filter = ["status", "recipient_role", "category", "priority", "created_at"]
+    search_fields = ["subject", "message", "user__phone_number", "user__first_name", "user__last_name"]
+    readonly_fields = ["created_at", "updated_at"]
+
+
+# ===========================================================================
+# Tutor Assignments Admin
+# ===========================================================================
+
+@admin.register(TutorCurriculumAssignment)
+class TutorCurriculumAssignmentAdmin(admin.ModelAdmin):
+    list_display = ["tutor", "curriculum", "is_active", "assigned_by", "created_at"]
+    list_filter = ["is_active", "curriculum"]
+    search_fields = ["tutor__phone_number", "tutor__first_name", "tutor__last_name", "curriculum__title"]
+    autocomplete_fields = ["tutor", "curriculum"]
+
+
+@admin.register(TutorCourseAssignment)
+class TutorCourseAssignmentAdmin(admin.ModelAdmin):
+    list_display = ["tutor", "course", "is_active", "assigned_by", "created_at"]
+    list_filter = ["is_active", "course__curriculum", "course"]
+    search_fields = ["tutor__phone_number", "tutor__first_name", "tutor__last_name", "course__title"]
+    autocomplete_fields = ["tutor", "course"]
+
+
+# ===========================================================================
+# Cohort Content Controls Admin
+# ===========================================================================
+
+@admin.register(CohortModuleRelease)
+class CohortModuleReleaseAdmin(admin.ModelAdmin):
+    list_display = ["cohort", "module", "is_published", "is_locked", "unlock_date", "updated_by", "updated_at"]
+    list_filter = ["is_published", "is_locked", "cohort"]
+    search_fields = ["cohort__name", "module__title"]
+
+
+@admin.register(CohortQuizSchedule)
+class CohortQuizScheduleAdmin(admin.ModelAdmin):
+    list_display = ["cohort", "quiz", "is_published", "is_locked", "open_date", "deadline", "extended_deadline", "scheduled_by"]
+    list_filter = ["is_published", "is_locked", "cohort"]
+    search_fields = ["cohort__name", "quiz__title"]
+
+
+# ===========================================================================
+# Cohort Activities & Submissions Admin
+# ===========================================================================
+
+@admin.register(CohortActivity)
+class CohortActivityAdmin(admin.ModelAdmin):
+    list_display = ["title", "cohort", "course", "activity_type", "total_points", "due_date", "is_published", "is_locked"]
+    list_filter = ["activity_type", "is_published", "is_locked", "cohort"]
+    search_fields = ["title", "title_kinyarwanda", "description", "cohort__name"]
+
+
+@admin.register(StudentActivitySubmission)
+class StudentActivitySubmissionAdmin(admin.ModelAdmin):
+    list_display = ["activity", "student", "status", "score", "submitted_at", "graded_by", "graded_at"]
+    list_filter = ["status", "activity__cohort"]
+    search_fields = ["activity__title", "student__phone_number", "student__first_name", "student__last_name"]
+    readonly_fields = ["submitted_at"]
+
 

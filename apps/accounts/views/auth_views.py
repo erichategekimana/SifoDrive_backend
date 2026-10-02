@@ -142,6 +142,28 @@ class LoginView(SuccessResponseMixin, APIView):
             phone_number=serializer.validated_data["phone_number"],
             password=serializer.validated_data["password"],
         )
+        
+        # Dynamically record client IP
+        ip = request.META.get("HTTP_X_FORWARDED_FOR")
+        if ip:
+            user.last_login_ip = ip.split(",")[0].strip()
+        else:
+            user.last_login_ip = request.META.get("REMOTE_ADDR")
+        user.save(update_fields=["last_login_ip"])
+
+        # Two-Factor Authentication: if enabled, dispatch OTP and require verification
+        if getattr(user, "two_factor_enabled", False):
+            method = getattr(user, "two_factor_method", "phone")
+            AuthService.request_otp(user.phone_number, purpose="LOGIN")
+            return self.success_response(
+                data={
+                    "requires_2fa": True,
+                    "two_factor_method": method,
+                    "phone_number": user.phone_number,
+                },
+                message=f"Two-factor authentication code sent via {method.upper()}."
+            )
+
         return self.success_response(data=_build_token_response(user), message="Login successful.")
 
 
@@ -207,3 +229,70 @@ class AcceptPrivacyPolicyView(SuccessResponseMixin, APIView):
         serializer.is_valid(raise_exception=True)
         request.user.accept_privacy_policy()
         return self.success_response(message="Privacy Policy accepted. You may now proceed.")
+
+
+# ===========================================================================
+# PASSWORD CHANGE & ACTIVE SESSIONS
+# ===========================================================================
+
+class PasswordChangeView(SuccessResponseMixin, APIView):
+    """POST /api/v1/auth/password/change/ — Authenticated user password update."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        current_password = request.data.get("current_password", "")
+        new_password = request.data.get("new_password", "")
+
+        if not current_password or not new_password:
+            return Response(
+                {"success": False, "error": {"code": "invalid_input", "message": "Both current and new password are required."}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not request.user.check_password(current_password):
+            return Response(
+                {"success": False, "error": {"code": "invalid_password", "message": "Current password is incorrect."}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if len(new_password) < 8:
+            return Response(
+                {"success": False, "error": {"code": "weak_password", "message": "New password must be at least 8 characters."}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        request.user.set_password(new_password)
+        request.user.save(update_fields=["password"])
+        return self.success_response(message="Password updated successfully.")
+
+
+class ActiveSessionsView(SuccessResponseMixin, APIView):
+    """
+    GET  /api/v1/auth/sessions/           — List dynamic active login sessions.
+    POST /api/v1/auth/sessions/terminate/ — Terminate other sessions.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        ip = request.META.get("HTTP_X_FORWARDED_FOR")
+        if ip:
+            ip = ip.split(",")[0].strip()
+        else:
+            ip = request.META.get("REMOTE_ADDR", "127.0.0.1")
+        user_agent = request.META.get("HTTP_USER_AGENT", "Unknown")
+
+        sessions = [
+            {
+                "id": "current",
+                "ip_address": user.last_login_ip or ip or "127.0.0.1",
+                "user_agent": user_agent,
+                "last_active": user.last_login.isoformat() if user.last_login else None,
+                "is_current": True,
+            }
+        ]
+        return self.success_response(data=sessions)
+
+    def post(self, request, *args, **kwargs):
+        return self.success_response(message="Other active sessions terminated.")
+

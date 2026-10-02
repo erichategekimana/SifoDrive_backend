@@ -39,16 +39,16 @@ from apps.lms.services import ContentGateService, CourseService
 
 
 def _is_content_staff(user) -> bool:
-    """Tutors, Training Admins, and System Admins can manage learning materials."""
+    """Tutors, Training Admins, and System Admins can view/manage learning materials."""
     return user.is_authenticated and user.role in (
         UserRole.TUTOR, UserRole.TRAINING_ADMIN, UserRole.SYSTEM_ADMIN
     )
 
 
-def _is_admin(user) -> bool:
-    """Training Admins and System Admins have administrative control."""
-    return user.is_authenticated and user.role in (
-        UserRole.TRAINING_ADMIN, UserRole.SYSTEM_ADMIN
+def _is_system_admin(user) -> bool:
+    """System Admins only (and superusers) have control over Curricula and Courses."""
+    return user.is_authenticated and (
+        user.is_superuser or user.role == UserRole.SYSTEM_ADMIN
     )
 
 
@@ -80,8 +80,8 @@ class CurriculumCreateView(SuccessResponseMixin, generics.CreateAPIView):
     serializer_class = CurriculumWriteSerializer
 
     def create(self, request, *args, **kwargs):
-        if not (request.user.is_authenticated and request.user.role == UserRole.SYSTEM_ADMIN):
-            raise PermissionDenied("Only system administrators can create curricula.")
+        if not _is_system_admin(request.user):
+            raise PermissionDenied("Only System Administrators can create curricula.")
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         instance = serializer.save(created_by=request.user)
@@ -123,8 +123,8 @@ class CurriculumUpdateView(SuccessResponseMixin, generics.UpdateAPIView):
             raise NotFound("Curriculum not found.")
 
     def update(self, request, *args, **kwargs):
-        if not (request.user.is_authenticated and request.user.role == UserRole.SYSTEM_ADMIN):
-            raise PermissionDenied("Only system administrators can edit curricula.")
+        if not _is_system_admin(request.user):
+            raise PermissionDenied("Only System Administrators can edit curricula.")
         partial = kwargs.pop('partial', True)
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
@@ -141,8 +141,8 @@ class CurriculumDeleteView(SuccessResponseMixin, APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def delete(self, request, pk, *args, **kwargs):
-        if not (request.user.is_authenticated and request.user.role == UserRole.SYSTEM_ADMIN):
-            raise PermissionDenied("Only system administrators can delete curricula.")
+        if not _is_system_admin(request.user):
+            raise PermissionDenied("Only System Administrators can delete curricula.")
         try:
             curr = Curriculum.objects.get(pk=pk, is_deleted=False)
         except Curriculum.DoesNotExist:
@@ -156,8 +156,8 @@ class CurriculumPublishView(SuccessResponseMixin, APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk, *args, **kwargs):
-        if not (request.user.is_authenticated and request.user.role == UserRole.SYSTEM_ADMIN):
-            raise PermissionDenied("Only system administrators can publish curricula.")
+        if not _is_system_admin(request.user):
+            raise PermissionDenied("Only System Administrators can publish curricula.")
         try:
             curr = Curriculum.objects.get(pk=pk, is_deleted=False)
         except Curriculum.DoesNotExist:
@@ -174,8 +174,8 @@ class CurriculumUnpublishView(SuccessResponseMixin, APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk, *args, **kwargs):
-        if not (request.user.is_authenticated and request.user.role == UserRole.SYSTEM_ADMIN):
-            raise PermissionDenied("Only system administrators can unpublish curricula.")
+        if not _is_system_admin(request.user):
+            raise PermissionDenied("Only System Administrators can unpublish curricula.")
         try:
             curr = Curriculum.objects.get(pk=pk, is_deleted=False)
         except Curriculum.DoesNotExist:
@@ -183,7 +183,7 @@ class CurriculumUnpublishView(SuccessResponseMixin, APIView):
         curr.unpublish()
         return self.success_response(
             data=CurriculumDetailSerializer(curr).data,
-            message=f"Curriculum '{curr.title}' moved to draft.",
+            message=f"Curriculum '{curr.title}' moved to draft. All child courses have been moved to draft.",
         )
 
 
@@ -199,6 +199,9 @@ class CurriculumCoursesListView(SuccessResponseMixin, generics.ListAPIView):
         if not (user.is_authenticated and user.role in (
             UserRole.SYSTEM_ADMIN, UserRole.TRAINING_ADMIN, UserRole.TUTOR
         )):
+            curr = Curriculum.objects.filter(id=curr_id, is_deleted=False).first()
+            if not curr or not curr.is_published:
+                return Course.objects.none()
             qs = qs.filter(is_published=True)
         return qs.order_by("sort_order", "created_at")
 
@@ -229,8 +232,8 @@ class CourseCreateView(SuccessResponseMixin, generics.CreateAPIView):
         serializer.save(created_by=self.request.user)
 
     def create(self, request, *args, **kwargs):
-        if not (request.user.is_authenticated and request.user.role == UserRole.SYSTEM_ADMIN):
-            raise PermissionDenied("Only system administrators can create curriculum courses.")
+        if not _is_system_admin(request.user):
+            raise PermissionDenied("Only System Administrators can create curriculum courses.")
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
@@ -247,11 +250,14 @@ class CourseDetailView(SuccessResponseMixin, generics.RetrieveAPIView):
 
     def get_object(self):
         try:
-            course = Course.objects.get(pk=self.kwargs["pk"])
+            course = Course.objects.get(pk=self.kwargs["pk"], is_deleted=False)
         except Course.DoesNotExist:
             raise NotFound("Course not found.")
-        if not course.is_published and not _is_content_staff(self.request.user):
-            raise NotFound("Course not found.")
+        if not _is_content_staff(self.request.user):
+            if not course.is_published:
+                raise NotFound("Course not found.")
+            if course.curriculum and not course.curriculum.is_published:
+                raise NotFound("Course not found.")
         return course
 
     def retrieve(self, request, *args, **kwargs):
@@ -266,8 +272,8 @@ class CourseUpdateView(SuccessResponseMixin, generics.UpdateAPIView):
     http_method_names  = ["patch"]
 
     def get_object(self):
-        if not (self.request.user.is_authenticated and self.request.user.role == UserRole.SYSTEM_ADMIN):
-            raise PermissionDenied("Only system administrators can edit curriculum courses.")
+        if not _is_system_admin(self.request.user):
+            raise PermissionDenied("Only System Administrators can edit curriculum courses.")
         return super().get_object()
 
     def update(self, request, *args, **kwargs):
@@ -287,8 +293,8 @@ class CourseDeleteView(SoftDeleteMixin, SuccessResponseMixin, generics.DestroyAP
     queryset           = Course.objects.all()
 
     def get_object(self):
-        if not (self.request.user.is_authenticated and self.request.user.role == UserRole.SYSTEM_ADMIN):
-            raise PermissionDenied("Only system administrators can delete curriculum courses.")
+        if not _is_system_admin(self.request.user):
+            raise PermissionDenied("Only System Administrators can delete curriculum courses.")
         return super().get_object()
 
 
@@ -297,15 +303,15 @@ class CoursePublishView(SuccessResponseMixin, APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk, *args, **kwargs):
-        if not (request.user.is_authenticated and request.user.role == UserRole.SYSTEM_ADMIN):
-            raise PermissionDenied("Only system administrators can publish courses.")
+        if not _is_system_admin(request.user):
+            raise PermissionDenied("Only System Administrators can publish courses.")
         try:
-            course = Course.objects.get(pk=pk)
+            course = Course.objects.get(pk=pk, is_deleted=False)
         except Course.DoesNotExist:
             raise NotFound("Course not found.")
         try:
             course = CourseService.publish_course(course, published_by=request.user)
-        except ValueError as exc:
+        except (ValueError, ValidationError) as exc:
             raise ValidationError(str(exc))
         return self.success_response(
             data=CourseDetailSerializer(course).data,
@@ -318,10 +324,10 @@ class CourseUnpublishView(SuccessResponseMixin, APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk, *args, **kwargs):
-        if not (request.user.is_authenticated and request.user.role == UserRole.SYSTEM_ADMIN):
-            raise PermissionDenied("Only system administrators can unpublish courses.")
+        if not _is_system_admin(request.user):
+            raise PermissionDenied("Only System Administrators can unpublish courses.")
         try:
-            course = Course.objects.get(pk=pk)
+            course = Course.objects.get(pk=pk, is_deleted=False)
         except Course.DoesNotExist:
             raise NotFound("Course not found.")
         CourseService.unpublish_course(course, unpublished_by=request.user)

@@ -24,6 +24,8 @@ from apps.accounts.views.auth_views import (
     OTPVerifyView,
     AcceptTermsOfServiceView,
     AcceptPrivacyPolicyView,
+    PasswordChangeView,
+    ActiveSessionsView,
 )
 
 # Profile self-service

@@ -206,6 +206,14 @@ class Quiz(BaseModel):
     )
     shuffle_questions = models.BooleanField(_("Shuffle Questions"), default=False)
     is_published = models.BooleanField(_("Published"), default=False, db_index=True)
+    allow_tutor_scheduling = models.BooleanField(
+        _("Allow Tutor Scheduling"),
+        default=True,
+        help_text=_(
+            "If True, tutors can independently schedule open dates, deadlines, and extensions per cohort. "
+            "If False, follows global training admin schedule."
+        ),
+    )
     created_by = models.ForeignKey(
         "accounts.User",
         on_delete=models.SET_NULL,

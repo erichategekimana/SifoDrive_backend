@@ -58,9 +58,11 @@ from .views import (
     EnterpriseStudentsListView,
     GuestRegistrationView,
     GuestUpgradeView,
+    ActiveSessionsView,
     LoginView,
     OTPRequestView,
     OTPVerifyView,
+    PasswordChangeView,
     ReviewerCertifyView,
     ReviewerProfileView,
     ReviewerQueueView,
@@ -103,6 +105,9 @@ urlpatterns = [
     # -------------------------------------------------------------------------
     path("otp/request/", OTPRequestView.as_view(), name="otp-request"),
     path("otp/verify/", OTPVerifyView.as_view(), name="otp-verify"),
+    path("password/change/", PasswordChangeView.as_view(), name="password-change"),
+    path("sessions/", ActiveSessionsView.as_view(), name="active-sessions"),
+    path("sessions/terminate/", ActiveSessionsView.as_view(), name="active-sessions-terminate"),
 
     # -------------------------------------------------------------------------
     # JWT Token Management

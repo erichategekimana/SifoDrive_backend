@@ -51,6 +51,35 @@ from apps.lms.models.progress import (  # noqa: F401
     LessonBookmark,
 )
 
+# Support / help tickets layer
+from apps.lms.models.support import (  # noqa: F401
+    HelpTicket,
+    TicketCategory,
+    TicketPriority,
+    TicketRecipientRole,
+    TicketStatus,
+)
+
+# Assignments layer
+from apps.lms.models.assignments import (  # noqa: F401
+    TutorCurriculumAssignment,
+    TutorCourseAssignment,
+)
+
+# Cohort content controls
+from apps.lms.models.cohort_content import (  # noqa: F401
+    CohortModuleRelease,
+    CohortQuizSchedule,
+)
+
+# Cohort activities layer
+from apps.lms.models.activity import (  # noqa: F401
+    ActivityType,
+    ActivitySubmissionType,
+    CohortActivity,
+    StudentActivitySubmission,
+)
+
 __all__ = [
     # Choices
     "CorrectOption",
@@ -73,4 +102,22 @@ __all__ = [
     # Progress
     "StudentProgress",
     "LessonBookmark",
+    # Support
+    "HelpTicket",
+    "TicketCategory",
+    "TicketPriority",
+    "TicketRecipientRole",
+    "TicketStatus",
+    # Assignments
+    "TutorCurriculumAssignment",
+    "TutorCourseAssignment",
+    # Cohort content
+    "CohortModuleRelease",
+    "CohortQuizSchedule",
+    # Cohort activities
+    "ActivityType",
+    "ActivitySubmissionType",
+    "CohortActivity",
+    "StudentActivitySubmission",
 ]
+

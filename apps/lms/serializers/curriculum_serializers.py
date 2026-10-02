@@ -23,27 +23,34 @@ class ModuleListSerializer(serializers.ModelSerializer):
         model = Module
         fields = [
             "id", "title", "description", "sort_order",
-            "is_foundational", "is_published",
+            "is_foundational", "is_student_only", "is_published",
             "lesson_count",
         ]
         read_only_fields = ["id", "lesson_count"]
 
 
 class ModuleDetailSerializer(serializers.ModelSerializer):
-    """Module with full lesson list."""
+    """Module with dynamically filtered lesson list based on requesting user."""
 
-    lessons   = LessonListSerializer(many=True, read_only=True)
+    lessons = serializers.SerializerMethodField()
     lesson_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Module
         fields = [
             "id", "course", "title", "description", "sort_order",
-            "is_foundational", "is_published", "published_at",
+            "is_foundational", "is_student_only", "is_published", "published_at",
             "lesson_count", "lessons",
             "created_at", "updated_at",
         ]
         read_only_fields = ["id", "published_at", "lesson_count", "created_at", "updated_at"]
+
+    def get_lessons(self, obj):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        from apps.lms.services import ContentGateService
+        visible_lessons = ContentGateService.get_visible_lessons(obj, user)
+        return LessonListSerializer(visible_lessons, many=True, context=self.context).data
 
 
 class ModuleWriteSerializer(serializers.ModelSerializer):
@@ -53,7 +60,7 @@ class ModuleWriteSerializer(serializers.ModelSerializer):
         model = Module
         fields = [
             "course", "title", "description",
-            "sort_order", "is_foundational",
+            "sort_order", "is_foundational", "is_student_only",
         ]
 
 
@@ -83,9 +90,9 @@ class CourseListSerializer(serializers.ModelSerializer):
 
 
 class CourseDetailSerializer(serializers.ModelSerializer):
-    """Full course with nested modules and lessons."""
+    """Full course with dynamically filtered nested modules and lessons."""
 
-    modules      = ModuleDetailSerializer(many=True, read_only=True)
+    modules = serializers.SerializerMethodField()
     module_count = serializers.IntegerField(read_only=True)
     lesson_count = serializers.IntegerField(read_only=True)
     curriculum_title = serializers.CharField(source="curriculum.title", read_only=True, default=None)
@@ -110,6 +117,13 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             "module_count", "lesson_count",
             "created_at", "updated_at",
         ]
+
+    def get_modules(self, obj):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        from apps.lms.services import ContentGateService
+        visible_modules = ContentGateService.get_visible_modules(obj, user)
+        return ModuleDetailSerializer(visible_modules, many=True, context=self.context).data
 
 
 class CourseWriteSerializer(serializers.ModelSerializer):
