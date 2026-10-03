@@ -64,3 +64,5 @@ class TutorAssignedStudentSerializer(serializers.Serializer):
     exam_eligible = serializers.BooleanField()
     attendance_rate = serializers.FloatField()
     module_completion = serializers.FloatField()
+    cohort_name = serializers.CharField(allow_null=True, required=False)
+    cohort_identifier = serializers.CharField(allow_null=True, required=False)

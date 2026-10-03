@@ -16,6 +16,7 @@ from .views import (
     CohortAssignTutorsView,
     CohortDetailView,
     CohortListCreateView,
+    CohortSetStatusView,
     LiveClassCancelView,
     LiveClassDetailView,
     LiveClassEndView,
@@ -33,6 +34,7 @@ urlpatterns = [
     # Cohorts
     path("cohorts/", CohortListCreateView.as_view(), name="cohort-list-create"),
     path("cohorts/<uuid:pk>/", CohortDetailView.as_view(), name="cohort-detail"),
+    path("cohorts/<uuid:pk>/set-status/", CohortSetStatusView.as_view(), name="cohort-set-status"),
     path("cohorts/<uuid:pk>/assign-students/", CohortAssignStudentsView.as_view(), name="cohort-assign-students"),
     path("cohorts/<uuid:pk>/assign-tutors/", CohortAssignTutorsView.as_view(), name="cohort-assign-tutors"),
 

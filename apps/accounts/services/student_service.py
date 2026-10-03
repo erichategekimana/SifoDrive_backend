@@ -48,6 +48,14 @@ class StudentService:
         # Ensure extended profile exists
         StudentProfile.objects.get_or_create(user=user)
 
+        # Auto-enroll in default open cohort if not already enrolled in a cohort
+        if not user.enrolled_cohorts.exists():
+            try:
+                from apps.live_classes.services import CohortService
+                CohortService.enroll_student_in_default_open_cohort(user)
+            except Exception as e:
+                logger.warning("Could not auto-enroll upgraded student into open cohort: %s", e)
+
         logger.info(
             "Guest upgraded to Student | user=%s",
             str(user.id)[:8],
@@ -69,7 +77,8 @@ class StudentService:
         if user.student_id:
             return user.student_id  # Already assigned — idempotent
 
-        student_id = generate_student_id()
+        cohort = user.cohorts.first()
+        student_id = generate_student_id(cohort=cohort)
         user.student_id = student_id
         user.save(update_fields=["student_id"])
 

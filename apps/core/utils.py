@@ -230,32 +230,73 @@ def generate_numeric_otp(length: int = 6) -> str:
 # ID Generators
 # ===========================================================================
 
-def generate_student_id(year: Optional[int] = None, sequence: Optional[int] = None) -> str:
+def generate_student_id_for_cohort(cohort, year: Optional[int] = None) -> str:
     """
-    Generate a unique Sifo Drive Student ID.
-    Format: SIFO-STU-{YEAR}-{SEQ:04d}
-    Example: SIFO-STU-2026-0042
-
-    Args:
-        year:     Academic year (default: current year).
-        sequence: Enrollment sequence (default: auto-assigned from DB count).
-
-    Notes:
-        - The sequence is advisory — always check uniqueness after generation.
-        - Assigned by StudentService.assign_student_id() after payment confirmation.
+    Generate a unique Sifo Drive Student ID for a student enrolled in a cohort.
+    Format: Starts with 'SDS' followed by 11 numbers/characters:
+      - 3-digit cohort identifier (e.g. '001')
+      - 4-digit academic year (e.g. '2026')
+      - 4-digit student unique sequence ID in that cohort and year (e.g. '0001')
+    Total: 14 characters (3 + 11), e.g. SDS00120260001.
     """
+    from django.utils import timezone
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+
     if year is None:
         year = timezone.now().year
 
-    if sequence is None:
-        from apps.accounts.models import User
-        count = User.objects.filter(
-            role="STUDENT",
-            created_at__year=year,
-        ).count()
-        sequence = count + 1
+    cohort_id_str = getattr(cohort, "identifier", None)
+    if not cohort_id_str:
+        seq_num = getattr(cohort, "sequence_number", 1) or 1
+        cohort_id_str = f"{seq_num:03d}"
 
-    return f"SIFO-STU-{year}-{sequence:04d}"
+    prefix = f"SDS{cohort_id_str}{year}"
+
+    existing_ids = list(
+        User.objects.filter(student_id__startswith=prefix).values_list("student_id", flat=True)
+    )
+    max_num = 0
+    for sid in existing_ids:
+        suffix = sid[len(prefix):]
+        try:
+            val = int(suffix)
+            if val > max_num:
+                max_num = val
+        except ValueError:
+            pass
+
+    next_num = max_num + 1
+    return f"{prefix}{next_num:04d}"
+
+
+def generate_student_id(cohort=None, year: Optional[int] = None, sequence: Optional[int] = None) -> str:
+    """
+    Generate a unique Student ID starting with 'SDS' followed by 11 chars
+    (3-digit cohort unique ID + 4-digit year + 4-digit student ID).
+    Example: SDS00120260001.
+    """
+    if cohort is not None:
+        return generate_student_id_for_cohort(cohort, year)
+
+    from django.utils import timezone
+    if year is None:
+        year = timezone.now().year
+
+    from apps.live_classes.models import Cohort
+    open_cohort = Cohort.objects.filter(status="open", is_active=True).first()
+    if open_cohort:
+        return generate_student_id_for_cohort(open_cohort, year)
+
+    first_cohort = Cohort.objects.order_by("created_at").first()
+    if first_cohort:
+        return generate_student_id_for_cohort(first_cohort, year)
+
+    prefix = f"SDS001{year}"
+    from apps.accounts.models import User
+    existing = User.objects.filter(student_id__startswith=prefix).count()
+    return f"{prefix}{existing + 1:04d}"
 
 
 def generate_booking_ticket(prefix: str = "SIFO-BKG") -> str:

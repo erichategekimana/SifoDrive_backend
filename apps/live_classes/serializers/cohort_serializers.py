@@ -1,7 +1,9 @@
 from rest_framework import serializers
 
+from apps.accounts.constants import UserRole
 from apps.accounts.models import User
 from apps.live_classes.models import Cohort
+from apps.live_classes.models.cohort import CohortStatus
 
 
 class UserBriefSerializer(serializers.ModelSerializer):
@@ -10,7 +12,7 @@ class UserBriefSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "phone_number", "first_name", "last_name", "full_name", "role"]
+        fields = ["id", "phone_number", "first_name", "last_name", "full_name", "role", "student_id"]
         read_only_fields = fields
 
 
@@ -20,10 +22,23 @@ class CohortListSerializer(serializers.ModelSerializer):
     student_count = serializers.IntegerField(read_only=True)
     tutor_count = serializers.IntegerField(read_only=True)
     ongoing_student_count = serializers.SerializerMethodField()
+    identifier = serializers.SerializerMethodField()
 
     def get_ongoing_student_count(self, obj) -> int:
         from apps.live_classes.services import CohortService
         return CohortService.get_ongoing_students_count(obj)
+
+    def get_identifier(self, obj):
+        """
+        Visible only to Training Admin, System Admin, and Board Reviewer.
+        Hidden from tutors, students, guests, etc.
+        """
+        request = self.context.get("request")
+        if not request or not hasattr(request, "user") or not request.user.is_authenticated:
+            return None
+        if request.user.role in [UserRole.SYSTEM_ADMIN, UserRole.TRAINING_ADMIN, UserRole.BOARD_REVIEWER]:
+            return obj.identifier
+        return None
 
     class Meta:
         model = Cohort
@@ -31,10 +46,12 @@ class CohortListSerializer(serializers.ModelSerializer):
             "id",
             "name",
             "code",
+            "identifier",
             "description",
             "start_date",
             "end_date",
             "max_capacity",
+            "status",
             "is_active",
             "schedule_description",
             "assigned_tutors",
@@ -43,7 +60,16 @@ class CohortListSerializer(serializers.ModelSerializer):
             "ongoing_student_count",
             "created_at",
         ]
-        read_only_fields = ["id", "assigned_tutors", "student_count", "tutor_count", "ongoing_student_count", "created_at"]
+        read_only_fields = [
+            "id",
+            "identifier",
+            "status",
+            "assigned_tutors",
+            "student_count",
+            "tutor_count",
+            "ongoing_student_count",
+            "created_at",
+        ]
 
 
 class CohortDetailSerializer(serializers.ModelSerializer):
@@ -52,10 +78,23 @@ class CohortDetailSerializer(serializers.ModelSerializer):
     student_count = serializers.IntegerField(read_only=True)
     tutor_count = serializers.IntegerField(read_only=True)
     ongoing_student_count = serializers.SerializerMethodField()
+    identifier = serializers.SerializerMethodField()
 
     def get_ongoing_student_count(self, obj) -> int:
         from apps.live_classes.services import CohortService
         return CohortService.get_ongoing_students_count(obj)
+
+    def get_identifier(self, obj):
+        """
+        Visible only to Training Admin, System Admin, and Board Reviewer.
+        Hidden from tutors, students, guests, etc.
+        """
+        request = self.context.get("request")
+        if not request or not hasattr(request, "user") or not request.user.is_authenticated:
+            return None
+        if request.user.role in [UserRole.SYSTEM_ADMIN, UserRole.TRAINING_ADMIN, UserRole.BOARD_REVIEWER]:
+            return obj.identifier
+        return None
 
     class Meta:
         model = Cohort
@@ -63,10 +102,12 @@ class CohortDetailSerializer(serializers.ModelSerializer):
             "id",
             "name",
             "code",
+            "identifier",
             "description",
             "start_date",
             "end_date",
             "max_capacity",
+            "status",
             "is_active",
             "schedule_description",
             "assigned_tutors",
@@ -76,7 +117,16 @@ class CohortDetailSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "assigned_tutors", "student_count", "tutor_count", "ongoing_student_count", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "identifier",
+            "assigned_tutors",
+            "student_count",
+            "tutor_count",
+            "ongoing_student_count",
+            "created_at",
+            "updated_at",
+        ]
 
 
 class CohortCreateUpdateSerializer(serializers.ModelSerializer):
@@ -84,6 +134,8 @@ class CohortCreateUpdateSerializer(serializers.ModelSerializer):
     code = serializers.CharField(max_length=50, required=False, allow_blank=True)
     description = serializers.CharField(max_length=165, required=False, allow_blank=True)
     end_date = serializers.DateField(required=True)
+    max_capacity = serializers.IntegerField(default=60, required=False)
+    status = serializers.ChoiceField(choices=CohortStatus.choices, default=CohortStatus.QUEUE, required=False)
 
     class Meta:
         model = Cohort
@@ -94,6 +146,7 @@ class CohortCreateUpdateSerializer(serializers.ModelSerializer):
             "start_date",
             "end_date",
             "max_capacity",
+            "status",
             "schedule_description",
             "is_active",
         ]
@@ -126,6 +179,14 @@ class CohortCreateUpdateSerializer(serializers.ModelSerializer):
         return attrs
 
 
+class CohortSetStatusSerializer(serializers.Serializer):
+    """Payload to update cohort status ('queue', 'open', 'closed', 'ended')."""
+    status = serializers.ChoiceField(
+        choices=CohortStatus.choices,
+        help_text="Target status: 'queue', 'open', 'closed', or 'ended'. Setting 'open' closes any other currently open cohort."
+    )
+
+
 class CohortAssignStudentsSerializer(serializers.Serializer):
     """Payload for bulk enrolling or unenrolling students in a cohort."""
     student_ids = serializers.ListField(
@@ -142,3 +203,4 @@ class CohortAssignTutorsSerializer(serializers.Serializer):
         allow_empty=False,
         help_text="List of tutor User UUIDs to assign or remove",
     )
+

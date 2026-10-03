@@ -10,6 +10,7 @@ from apps.live_classes.serializers.cohort_serializers import (
     CohortCreateUpdateSerializer,
     CohortDetailSerializer,
     CohortListSerializer,
+    CohortSetStatusSerializer,
     UserBriefSerializer,
 )
 from apps.live_classes.serializers.resource_serializers import (
@@ -36,6 +37,7 @@ __all__ = [
     "CohortListSerializer",
     "CohortDetailSerializer",
     "CohortCreateUpdateSerializer",
+    "CohortSetStatusSerializer",
     "CohortAssignStudentsSerializer",
     "CohortAssignTutorsSerializer",
     "ClassResourceSerializer",

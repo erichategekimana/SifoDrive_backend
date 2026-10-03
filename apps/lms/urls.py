@@ -118,6 +118,7 @@ from .views import (
     AdminTutorCurriculaAssignmentView,
     AdminTutorCoursesAssignmentView,
     TutorAssignedCohortsListView,
+    TutorApproachingDeadlinesView,
     TutorCohortCoursesListView,
     TutorCohortModulesView,
     TutorCohortModuleReleaseUpdateView,
@@ -216,6 +217,7 @@ urlpatterns = [
 
     # ── Tutor LMS Studio: Cohort Material Controls ───────────────────────────
     path("tutor/cohorts/",                                              TutorAssignedCohortsListView.as_view(),        name="tutor-cohorts-list"),
+    path("tutor/deadlines/",                                            TutorApproachingDeadlinesView.as_view(),       name="tutor-deadlines"),
     path("tutor/cohorts/<uuid:cohort_id>/courses/",                     TutorCohortCoursesListView.as_view(),          name="tutor-cohort-courses"),
     path("tutor/cohorts/<uuid:cohort_id>/courses/<uuid:course_id>/modules/", TutorCohortModulesView.as_view(),         name="tutor-cohort-modules"),
     path("tutor/cohorts/<uuid:cohort_id>/modules/<uuid:module_id>/release/", TutorCohortModuleReleaseUpdateView.as_view(), name="tutor-cohort-module-release"),

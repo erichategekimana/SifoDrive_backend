@@ -24,6 +24,7 @@ from apps.live_classes.views.cohort_views import (
     CohortAssignTutorsView,
     CohortDetailView,
     CohortListCreateView,
+    CohortSetStatusView,
 )
 from apps.live_classes.views.resource_views import (
     ClassResourceDetailView,
@@ -33,6 +34,7 @@ from apps.live_classes.views.resource_views import (
 __all__ = [
     "CohortListCreateView",
     "CohortDetailView",
+    "CohortSetStatusView",
     "CohortAssignStudentsView",
     "CohortAssignTutorsView",
     "LiveClassListCreateView",

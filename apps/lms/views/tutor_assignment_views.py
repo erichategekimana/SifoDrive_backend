@@ -45,7 +45,7 @@ class AdminTutorsListView(SuccessResponseMixin, APIView):
     permission_classes = [IsTrainingAdminOrAbove]
 
     def get(self, request):
-        tutors = User.objects.filter(role=UserRole.TUTOR, is_deleted=False).order_by("first_name", "last_name")
+        tutors = User.objects.filter(role=UserRole.TUTOR).order_by("-created_at")
         serializer = TutorAccreditationSummarySerializer(tutors, many=True)
         return self.success_response(data=serializer.data)
 

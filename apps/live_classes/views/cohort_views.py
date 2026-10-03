@@ -4,6 +4,7 @@ from rest_framework import generics, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.core.exceptions import ValidationError as DjangoValidationError
 
 from apps.accounts.constants import UserRole
 from apps.core.mixins import SuccessResponseMixin
@@ -12,12 +13,14 @@ from apps.core.permissions import (
     IsTrainingAdminOrAbove,
 )
 from apps.live_classes.models import Cohort
+from apps.live_classes.models.cohort import CohortStatus
 from apps.live_classes.serializers import (
     CohortAssignStudentsSerializer,
     CohortAssignTutorsSerializer,
     CohortCreateUpdateSerializer,
     CohortDetailSerializer,
     CohortListSerializer,
+    CohortSetStatusSerializer,
 )
 from apps.live_classes.services import CohortService
 
@@ -41,6 +44,7 @@ class CohortListCreateView(SuccessResponseMixin, generics.ListCreateAPIView):
         return CohortListSerializer
 
     def get_queryset(self):
+        CohortService.evaluate_all_cohorts_status()
         user = self.request.user
         if user.role in [UserRole.SYSTEM_ADMIN, UserRole.TRAINING_ADMIN, UserRole.TUTOR, UserRole.BOARD_REVIEWER]:
             return Cohort.objects.all().prefetch_related("assigned_tutors", "students")
@@ -50,12 +54,13 @@ class CohortListCreateView(SuccessResponseMixin, generics.ListCreateAPIView):
         data = serializer.validated_data
         cohort = CohortService.create_cohort(
             name=data["name"],
-            code=data["code"],
             start_date=data["start_date"],
+            code=data.get("code"),
             end_date=data.get("end_date"),
-            max_capacity=data.get("max_capacity", 50),
+            max_capacity=data.get("max_capacity", 60),
             schedule_description=data.get("schedule_description", ""),
             description=data.get("description", ""),
+            status=data.get("status", CohortStatus.QUEUE),
         )
         serializer.instance = cohort
 
@@ -79,6 +84,20 @@ class CohortDetailView(SuccessResponseMixin, generics.RetrieveUpdateDestroyAPIVi
             return CohortCreateUpdateSerializer
         return CohortDetailSerializer
 
+    def get_object(self):
+        obj = super().get_object()
+        obj.evaluate_status(save=True)
+        return obj
+
+    def perform_update(self, serializer):
+        new_status = serializer.validated_data.pop("status", None)
+        instance = serializer.save()
+        if new_status:
+            try:
+                CohortService.set_cohort_status(instance, new_status)
+            except DjangoValidationError as e:
+                raise ValidationError({"status": list(e.messages) if hasattr(e, "messages") else str(e)})
+
     def perform_destroy(self, instance):
         can_deactivate, ongoing = CohortService.can_deactivate_cohort(instance)
         if not can_deactivate:
@@ -87,6 +106,44 @@ class CohortDetailView(SuccessResponseMixin, generics.RetrieveUpdateDestroyAPIVi
             )
         instance.is_active = False
         instance.save(update_fields=["is_active", "updated_at"])
+
+
+class CohortSetStatusView(SuccessResponseMixin, APIView):
+    """
+    POST: Set status for a cohort ('queue', 'open', 'closed', 'ended').
+    Setting 'open' makes this cohort the default for new students, and automatically
+    transitions any previously open cohort to 'closed'.
+    """
+
+    permission_classes = [IsTrainingAdminOrAbove]
+
+    def post(self, request, pk):
+        try:
+            cohort = Cohort.objects.get(pk=pk)
+        except Cohort.DoesNotExist:
+            return Response({"detail": "Cohort not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = CohortSetStatusSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        target_status = serializer.validated_data["status"]
+
+        try:
+            cohort = CohortService.set_cohort_status(cohort, target_status)
+        except DjangoValidationError as e:
+            raise ValidationError({"status": list(e.messages) if hasattr(e, "messages") else str(e)})
+
+        return self.success_response(
+            data={
+                "id": str(cohort.id),
+                "name": cohort.name,
+                "code": cohort.code,
+                "status": cohort.status,
+                "is_active": cohort.is_active,
+                "student_count": cohort.students.count(),
+                "max_capacity": cohort.max_capacity,
+            },
+            message=f"Cohort '{cohort.name}' status successfully changed to '{cohort.status}'.",
+        )
 
 
 class CohortAssignStudentsView(SuccessResponseMixin, APIView):

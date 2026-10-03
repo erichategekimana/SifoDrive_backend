@@ -69,22 +69,32 @@ class AssignCoursesSerializer(serializers.Serializer):
 
 class TutorAccreditationSummarySerializer(serializers.ModelSerializer):
     """Summarizes a tutor's active assignments for the Training Admin console."""
+    full_name = serializers.CharField(read_only=True)
     assigned_curricula = serializers.SerializerMethodField()
     assigned_courses = serializers.SerializerMethodField()
     assigned_cohorts = serializers.SerializerMethodField()
+    assigned_curricula_count = serializers.SerializerMethodField()
+    assigned_courses_count = serializers.SerializerMethodField()
+    assigned_cohorts_count = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
             "id",
+            "full_name",
             "first_name",
             "last_name",
             "phone_number",
+            "email",
+            "status",
             "role",
             "is_active",
             "assigned_curricula",
             "assigned_courses",
             "assigned_cohorts",
+            "assigned_curricula_count",
+            "assigned_courses_count",
+            "assigned_cohorts_count",
         ]
 
     def get_assigned_curricula(self, obj):
@@ -95,6 +105,7 @@ class TutorAccreditationSummarySerializer(serializers.ModelSerializer):
             {
                 "id": str(a.curriculum.id),
                 "title": a.curriculum.title,
+                "name": a.curriculum.title,
                 "code": a.curriculum.code,
             }
             for a in assignments
@@ -108,6 +119,7 @@ class TutorAccreditationSummarySerializer(serializers.ModelSerializer):
             {
                 "id": str(a.course.id),
                 "title": a.course.title,
+                "name": a.course.title,
                 "code": a.course.code,
                 "curriculum_id": str(a.course.curriculum_id) if a.course.curriculum_id else None,
                 "curriculum_title": a.course.curriculum.title if a.course.curriculum else "",
@@ -126,3 +138,16 @@ class TutorAccreditationSummarySerializer(serializers.ModelSerializer):
             }
             for c in cohorts
         ]
+
+    def get_assigned_curricula_count(self, obj):
+        return TutorCurriculumAssignment.objects.filter(
+            tutor=obj, is_active=True, is_deleted=False
+        ).count()
+
+    def get_assigned_courses_count(self, obj):
+        return TutorCourseAssignment.objects.filter(
+            tutor=obj, is_active=True, is_deleted=False
+        ).count()
+
+    def get_assigned_cohorts_count(self, obj):
+        return obj.assigned_cohorts.filter(is_active=True).count()

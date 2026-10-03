@@ -59,17 +59,25 @@ class TutorService:
         """Fetch list of students supervised by this tutor with learning progress details."""
         from apps.accounts.services.student_service import StudentService
 
-        students = user.tutoring_students.all().select_related("student_profile").order_by("-created_at")
+        cohort_students = User.objects.filter(enrolled_cohorts__in=user.assigned_cohorts.filter(is_active=True))
+        students = (user.tutoring_students.all() | cohort_students).distinct().select_related("student_profile").prefetch_related("enrolled_cohorts").order_by("-created_at")
+
         results = []
         for s in students:
             profile = getattr(s, "student_profile", None)
             eligibility = StudentService.check_exam_eligibility(s)
+            active_cohort = s.enrolled_cohorts.filter(is_active=True).first()
+            cohort_name = active_cohort.name if active_cohort else "Unassigned"
+            cohort_identifier = getattr(active_cohort, "identifier", "") if active_cohort else ""
+
             results.append({
                 "id": str(s.id),
                 "full_name": s.full_name,
                 "phone_number": s.phone_number,
                 "student_id": s.student_id,
                 "status": s.status,
+                "cohort_name": cohort_name,
+                "cohort_identifier": cohort_identifier,
                 "license_category": profile.license_category if profile else "B",
                 "current_streak_days": profile.current_streak_days if profile else 0,
                 "exam_eligible": eligibility.get("eligible", False),

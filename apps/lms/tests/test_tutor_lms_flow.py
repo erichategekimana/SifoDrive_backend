@@ -281,3 +281,31 @@ def test_tutor_activity_creation_submission_and_grading(tutor_1, student_1, coho
     assert graded.score == 48
     assert graded.tutor_feedback == "Excellent thorough inspection checklist!"
     assert graded.graded_by == tutor_1
+
+
+@pytest.mark.django_db
+def test_individual_tutor_curriculum_distribution_and_unassign(
+    training_admin, tutor_1, tutor_2, curriculum_a, curriculum_b, course_a1
+):
+    # 1. Assign curriculum_a and course_a1 to tutor_1 ONLY
+    TutorAssignmentService.assign_curricula_to_tutor(tutor_1, [curriculum_a.id], training_admin)
+    TutorAssignmentService.assign_courses_to_tutor(tutor_1, [course_a1.id], training_admin)
+
+    # Verify tutor_1 has curriculum_a and course_a1
+    assert TutorCurriculumAssignment.objects.filter(tutor=tutor_1, is_active=True).count() == 1
+    assert TutorCourseAssignment.objects.filter(tutor=tutor_1, is_active=True).count() == 1
+
+    # Verify tutor_2 has ZERO assignments (strict individual distribution)
+    assert TutorCurriculumAssignment.objects.filter(tutor=tutor_2, is_active=True).count() == 0
+    assert TutorCourseAssignment.objects.filter(tutor=tutor_2, is_active=True).count() == 0
+
+    # 2. Unassign tutor_1 by passing empty list []
+    TutorAssignmentService.assign_curricula_to_tutor(tutor_1, [], training_admin)
+
+    # Verify tutor_1 assignments are completely deactivated
+    assert TutorCurriculumAssignment.objects.filter(tutor=tutor_1, is_active=True).count() == 0
+    assert TutorCourseAssignment.objects.filter(tutor=tutor_1, is_active=True).count() == 0
+
+    # Verify tutor_2 remains untouched
+    assert TutorCurriculumAssignment.objects.filter(tutor=tutor_2, is_active=True).count() == 0
+

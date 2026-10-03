@@ -1,3 +1,4 @@
+import logging
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -7,6 +8,8 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from apps.core.utils import normalize_phone_number
 from apps.accounts.constants import AccountStatus, UserRole
 from apps.accounts.models import OTPVerification
+
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
@@ -192,6 +195,13 @@ class StudentRegistrationSerializer(BaseRegistrationSerializer):
         )
         user.set_password(password)
         user.save()
+
+        try:
+            from apps.live_classes.services import CohortService
+            CohortService.enroll_student_in_default_open_cohort(user)
+        except Exception as e:
+            logger.warning("Could not auto-enroll registering student in default open cohort: %s", e)
+
         return user
 
 

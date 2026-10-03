@@ -33,46 +33,76 @@ class ReviewerService:
         """Aggregate reviewer caseload metrics."""
         profile = cls.get_or_create_profile(user)
         
-        # Count flagged exam sessions awaiting review
+        # Count exam sessions awaiting board review
         pending_queue_count = 0
+        total_reviews = profile.total_reviews_completed
+        total_approved = profile.total_certifications_approved
+        total_violations = profile.total_violations_confirmed
+
         try:
-            from apps.examinations.models import ExamSession
+            from apps.examinations.models import ExamSession, ExamSessionStatus
             pending_queue_count = ExamSession.objects.filter(
-                status="FLAGGED_FOR_REVIEW",
+                status__in=[
+                    ExamSessionStatus.SUBMITTED,
+                    ExamSessionStatus.BOARD_REVIEW,
+                    ExamSessionStatus.FLAGGED,
+                ],
             ).count()
-        except Exception:
-            pending_queue_count = 0
+
+            # Dynamic tally from session records if present
+            session_reviews = ExamSession.objects.filter(board_reviewer=user)
+            if session_reviews.exists():
+                total_reviews = max(total_reviews, session_reviews.count())
+                total_approved = max(total_approved, session_reviews.filter(board_decision="APPROVE").count())
+                total_violations = max(total_violations, session_reviews.filter(board_decision="REJECT").count())
+        except Exception as e:
+            logger.warning("Could not calculate exam session reviewer stats: %s", e)
 
         return {
             "reviewer_code": profile.reviewer_code,
             "inspector_badge_number": profile.inspector_badge_number,
             "accreditation_authority": profile.accreditation_authority,
-            "total_reviews_completed": profile.total_reviews_completed,
-            "total_certifications_approved": profile.total_certifications_approved,
-            "total_violations_confirmed": profile.total_violations_confirmed,
+            "total_reviews_completed": total_reviews,
+            "total_certifications_approved": total_approved,
+            "total_violations_confirmed": total_violations,
             "pending_queue_count": pending_queue_count,
             "is_active": profile.is_active_reviewer,
         }
 
     @classmethod
     def get_flagged_queue(cls) -> list[dict]:
-        """Fetch queue of exam sessions flagged by proctoring engine for review."""
+        """Fetch queue of exam sessions awaiting board evaluation or proctoring audit."""
         try:
-            from apps.examinations.models import ExamSession
-            flagged_sessions = ExamSession.objects.filter(
-                status="FLAGGED_FOR_REVIEW",
-            ).select_related("user").order_by("-updated_at")[:50]
+            from apps.examinations.models import ExamSession, ExamSessionStatus
+            sessions = ExamSession.objects.filter(
+                status__in=[
+                    ExamSessionStatus.SUBMITTED,
+                    ExamSessionStatus.BOARD_REVIEW,
+                    ExamSessionStatus.FLAGGED,
+                ],
+            ).select_related("student", "cohort").order_by("-created_at")[:50]
 
             results = []
-            for s in flagged_sessions:
+            for s in sessions:
+                name = s.student.get_full_name() if s.student else "Candidate"
+                if not name or not name.strip():
+                    name = s.student.phone_number if s.student else "Candidate"
+
+                score_pct = round((s.score / s.total_questions) * 100, 1) if (s.score is not None and s.total_questions) else 0.0
+                flag_text = (
+                    f"Proctoring Telemetry ({s.violation_count} anomaly logs)"
+                    if s.violation_count > 0
+                    else "Awaiting Stage 1 Board Certification"
+                )
+
                 results.append({
                     "session_id": str(s.id),
-                    "candidate_name": s.user.full_name if s.user else "Candidate",
-                    "candidate_phone": s.user.phone_number if s.user else "",
-                    "student_id": getattr(s.user, "student_id", None) if s.user else None,
-                    "exam_title": getattr(s.exam, "title", "Theory Mock Exam") if hasattr(s, "exam") and s.exam else "Theory Mock Exam",
-                    "score_percentage": getattr(s, "score_percentage", 0),
-                    "flagged_reason": getattr(s, "flag_reason", "Multiple faces detected or camera obscured"),
+                    "candidate_name": name,
+                    "candidate_phone": s.student.phone_number if s.student else "",
+                    "student_id": getattr(s.student, "student_id", None) if s.student else None,
+                    "exam_title": f"Rwanda Driving Theory Mock ({s.track})",
+                    "score_percentage": score_pct,
+                    "flagged_reason": flag_text,
                     "created_at": s.created_at.isoformat() if s.created_at else None,
                 })
             return results
@@ -85,31 +115,31 @@ class ReviewerService:
         cls,
         reviewer_user: User,
         session_id: str,
-        action: str,  # 'APPROVE' or 'DISQUALIFY'
+        action: str,  # 'APPROVE' or 'DISQUALIFY' / 'REJECT'
         remarks: str = "",
     ) -> dict:
         """
-        Examiner adjudication: Certify grade or disqualify session.
-        Updates examiner statistics and audit trail.
+        Examiner adjudication: Certify grade or reject session.
+        Advances state through ExamWorkflowService and updates examiner records.
         """
         profile = cls.get_or_create_profile(reviewer_user)
-        
-        try:
-            from apps.examinations.models import ExamSession
-            session = ExamSession.objects.get(id=session_id)
-            if action.upper() == "APPROVE":
-                session.status = "COMPLETED"
-                profile.total_certifications_approved += 1
-            else:
-                session.status = "DISQUALIFIED"
-                profile.total_violations_confirmed += 1
+        decision = "APPROVE" if action.upper() in ("APPROVE", "CERTIFY") else "REJECT"
 
-            session.reviewer_remarks = remarks
-            session.reviewed_by = reviewer_user
-            session.reviewed_at = timezone.now()
-            session.save(update_fields=["status", "reviewer_remarks", "reviewed_by", "reviewed_at"])
+        try:
+            from apps.examinations.services.workflow_service import ExamWorkflowService
+            review_note = remarks.strip() if remarks and remarks.strip() else f"Board evaluation certified by {profile.reviewer_code}"
+            session = ExamWorkflowService.board_review_decision(
+                session_id=session_id,
+                reviewer=reviewer_user,
+                decision=decision,
+                notes=review_note,
+            )
 
             profile.total_reviews_completed += 1
+            if decision == "APPROVE":
+                profile.total_certifications_approved += 1
+            else:
+                profile.total_violations_confirmed += 1
             profile.save(update_fields=[
                 "total_reviews_completed",
                 "total_certifications_approved",
@@ -123,16 +153,5 @@ class ReviewerService:
                 "message": f"Session marked as {session.status}.",
             }
         except Exception as e:
-            # Still update profile counter if mock session
-            profile.total_reviews_completed += 1
-            if action.upper() == "APPROVE":
-                profile.total_certifications_approved += 1
-            else:
-                profile.total_violations_confirmed += 1
-            profile.save()
-            return {
-                "session_id": session_id,
-                "status": "APPROVED" if action.upper() == "APPROVE" else "DISQUALIFIED",
-                "adjudicated_by": profile.reviewer_code,
-                "message": f"Review action recorded: {action.upper()}.",
-            }
+            logger.error("Error adjudicating exam session %s: %s", session_id, e)
+            raise

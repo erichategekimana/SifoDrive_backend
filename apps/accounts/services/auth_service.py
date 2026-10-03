@@ -180,6 +180,12 @@ class AuthService:
                 str(user.id)[:8],
                 user.role,
             )
+            if user.role == UserRole.STUDENT and not user.enrolled_cohorts.exists():
+                try:
+                    from apps.live_classes.services import CohortService
+                    CohortService.enroll_student_in_default_open_cohort(user)
+                except Exception as e:
+                    logger.warning("Could not auto-enroll verified student into open cohort: %s", e)
 
         logger.info(
             "OTP verified | user=%s purpose=%s",

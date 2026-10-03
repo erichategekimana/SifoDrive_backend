@@ -94,6 +94,7 @@ from apps.lms.views.cohort_material_views import (  # noqa: F401
     TutorCohortQuizzesView,
     TutorCohortQuizScheduleView,
     TutorCohortQuizExtendView,
+    TutorApproachingDeadlinesView,
 )
 
 from apps.lms.views.activity_views import (  # noqa: F401
