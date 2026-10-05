@@ -24,6 +24,7 @@ class StudentProgressSerializer(serializers.ModelSerializer):
             "is_completed", "completed_at",
             "time_spent_seconds",
             "quiz_score", "quiz_attempts",
+            "is_late", "days_late",
         ]
         read_only_fields = fields
 

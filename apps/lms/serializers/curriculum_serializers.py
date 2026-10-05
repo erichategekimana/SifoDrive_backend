@@ -23,7 +23,7 @@ class ModuleListSerializer(serializers.ModelSerializer):
         model = Module
         fields = [
             "id", "title", "description", "sort_order",
-            "is_foundational", "is_student_only", "is_published",
+            "is_foundational", "is_student_only", "is_outside_resource", "is_published",
             "lesson_count",
         ]
         read_only_fields = ["id", "lesson_count"]
@@ -39,7 +39,7 @@ class ModuleDetailSerializer(serializers.ModelSerializer):
         model = Module
         fields = [
             "id", "course", "title", "description", "sort_order",
-            "is_foundational", "is_student_only", "is_published", "published_at",
+            "is_foundational", "is_student_only", "is_outside_resource", "is_published", "published_at",
             "lesson_count", "lessons",
             "created_at", "updated_at",
         ]
@@ -60,7 +60,7 @@ class ModuleWriteSerializer(serializers.ModelSerializer):
         model = Module
         fields = [
             "course", "title", "description",
-            "sort_order", "is_foundational", "is_student_only",
+            "sort_order", "is_foundational", "is_student_only", "is_outside_resource",
         ]
 
 
@@ -85,6 +85,7 @@ class CourseListSerializer(serializers.ModelSerializer):
             "estimated_hours", "sort_order",
             "is_published", "published_at",
             "module_count", "lesson_count",
+            "homepage_data",
         ]
         read_only_fields = ["id", "published_at", "module_count", "lesson_count"]
 
@@ -108,7 +109,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             "is_published", "published_at", "published_by",
             "created_by", "updated_by",
             "module_count", "lesson_count",
-            "modules",
+            "modules", "homepage_data",
             "created_at", "updated_at",
         ]
         read_only_fields = [
@@ -134,8 +135,17 @@ class CourseWriteSerializer(serializers.ModelSerializer):
         fields = [
             "curriculum", "code", "title", "title_kinyarwanda",
             "description", "description_kinyarwanda",
-            "thumbnail", "estimated_hours", "sort_order",
+            "thumbnail", "estimated_hours", "sort_order", "homepage_data",
         ]
+
+
+class CourseHomepageSerializer(serializers.ModelSerializer):
+    """Dedicated serializer for reading and updating course home page builder data."""
+
+    class Meta:
+        model = Course
+        fields = ["id", "title", "homepage_data", "updated_at"]
+        read_only_fields = ["id", "title", "updated_at"]
 
 
 class CourseStatsSerializer(serializers.Serializer):

@@ -68,6 +68,7 @@ from .views import (
     CourseCreateView,
     CourseDeleteView,
     CourseDetailView,
+    CourseHomepageView,
     CourseListView,
     CoursePublishView,
     CourseStatsView,
@@ -87,6 +88,11 @@ from .views import (
     LessonDeleteView,
     LessonDetailView,
     LessonListView,
+    LessonContentListCreateView,
+    LessonContentDetailView,
+    LessonContentUpdateView,
+    LessonContentDeleteView,
+    LessonContentReorderView,
     LessonQuestionAddView,
     LessonQuestionListView,
     LessonQuestionRemoveView,
@@ -155,6 +161,7 @@ urlpatterns = [
     path("courses/<uuid:pk>/delete/",           CourseDeleteView.as_view(),    name="course-delete"),
     path("courses/<uuid:pk>/publish/",          CoursePublishView.as_view(),   name="course-publish"),
     path("courses/<uuid:pk>/unpublish/",        CourseUnpublishView.as_view(), name="course-unpublish"),
+    path("courses/<uuid:pk>/homepage/",         CourseHomepageView.as_view(),  name="course-homepage"),
     path("courses/<uuid:pk>/stats/",            CourseStatsView.as_view(),     name="course-stats"),
     path("courses/<uuid:course_id>/modules/",   ModuleListView.as_view(),      name="course-modules"),
 
@@ -176,6 +183,13 @@ urlpatterns = [
     path("lessons/<uuid:lesson_id>/questions/add/",   LessonQuestionAddView.as_view(),    name="lesson-question-add"),
     path("lessons/<uuid:lesson_id>/questions/<uuid:question_id>/remove/",
          LessonQuestionRemoveView.as_view(), name="lesson-question-remove"),
+
+    # ── Lesson Contents (Multi-Content per Lesson) ───────────────────────────
+    path("lessons/<uuid:lesson_id>/contents/",         LessonContentListCreateView.as_view(), name="lesson-contents"),
+    path("lessons/<uuid:lesson_id>/contents/reorder/", LessonContentReorderView.as_view(),    name="lesson-contents-reorder"),
+    path("contents/<uuid:pk>/",                        LessonContentDetailView.as_view(),     name="lesson-content-detail"),
+    path("contents/<uuid:pk>/edit/",                   LessonContentUpdateView.as_view(),     name="lesson-content-update"),
+    path("contents/<uuid:pk>/delete/",                 LessonContentDeleteView.as_view(),     name="lesson-content-delete"),
 
     # ── Road Signs ───────────────────────────────────────────────────────────
     path("road-signs/",            RoadSignListView.as_view(),   name="roadsign-list"),

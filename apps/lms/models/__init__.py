@@ -20,6 +20,8 @@ from apps.lms.models.choices import (  # noqa: F401
     CorrectOption,
     Difficulty,
     LessonType,
+    LessonContentType,
+    DocumentFormat,
     QuizDomain,
     RoadSignCategory,
 )
@@ -35,6 +37,7 @@ from apps.lms.models.content import (  # noqa: F401
     RoadSign,
     Module,
     Lesson,
+    LessonContent,
     LessonQuestion,
 )
 

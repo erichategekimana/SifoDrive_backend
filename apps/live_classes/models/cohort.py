@@ -82,6 +82,14 @@ class Cohort(BaseModel):
         blank=True,
         help_text=_("e.g. Mon, Wed, Fri 09:00 - 11:00 CAT"),
     )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_cohorts",
+        verbose_name=_("Created By Admin"),
+    )
 
     class Meta(BaseModel.Meta):
         app_label = 'live_classes'

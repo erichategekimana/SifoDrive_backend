@@ -16,6 +16,24 @@ class LessonType(models.TextChoices):
     VIDEO      = "VIDEO",     _("Video Lesson")
     ROAD_SIGN  = "ROAD_SIGN", _("Road Sign Study")
     QUIZ       = "QUIZ",      _("Interactive Quiz")
+    MULTI      = "MULTI",     _("Multi-Content Lesson")
+
+
+class LessonContentType(models.TextChoices):
+    TEXT         = "TEXT",         _("Text (Input / Article)")
+    AUDIO        = "AUDIO",        _("Audio Recording")
+    VIDEO        = "VIDEO",        _("Video Lecture")
+    IMAGE        = "IMAGE",        _("Image / Infographic")
+    DOCUMENT     = "DOCUMENT",     _("Text File / Presentation (PDF, PPT, Canva, Slides)")
+
+
+class DocumentFormat(models.TextChoices):
+    PDF          = "PDF",          _("PDF Document")
+    POWERPOINT   = "POWERPOINT",   _("MS PowerPoint Presentation (.ppt, .pptx)")
+    PRESENTATION = "PRESENTATION", _("Interactive Presentation / Slides")
+    CANVA        = "CANVA",        _("Canva Design / Slides")
+    OTHER        = "OTHER",        _("Other Document")
+
 
 
 class RoadSignCategory(models.TextChoices):

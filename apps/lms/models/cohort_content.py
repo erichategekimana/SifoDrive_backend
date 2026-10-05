@@ -120,6 +120,17 @@ class CohortQuizSchedule(BaseModel):
         blank=True,
         help_text=_("Standard due date for this cohort."),
     )
+    closing_date = models.DateTimeField(
+        _("Closing Date / Cutoff"),
+        null=True,
+        blank=True,
+        help_text=_("Final cutoff date for late submissions for this cohort."),
+    )
+    allow_late_submission = models.BooleanField(
+        _("Allow Late Submission"),
+        default=False,
+        help_text=_("Allow late submissions past the deadline up to closing_date for this cohort."),
+    )
     extended_deadline = models.DateTimeField(
         _("Extended Deadline"),
         null=True,
@@ -154,13 +165,23 @@ class CohortQuizSchedule(BaseModel):
         return self.extended_deadline or self.deadline
 
     @property
+    def effective_closing_date(self):
+        return self.closing_date or (self.quiz.closing_date if self.quiz else None)
+
+    @property
+    def allows_late(self) -> bool:
+        if self.quiz and self.quiz.is_final_exam:
+            return False
+        return self.allow_late_submission or (bool(self.quiz.allow_late_submission) if self.quiz else False)
+
+    @property
     def status_for_cohort(self) -> str:
         """
         Status evaluation for this cohort:
         - 'DRAFT': not published
         - 'LOCKED': published but locked
         - 'SCHEDULED': open date is in the future
-        - 'CLOSED': effective deadline has passed
+        - 'CLOSED': cutoff has passed
         - 'OPEN': currently accessible
         """
         if not self.is_published:
@@ -170,6 +191,7 @@ class CohortQuizSchedule(BaseModel):
         now = timezone.now()
         if self.open_date and self.open_date > now:
             return "SCHEDULED"
-        if self.effective_deadline and self.effective_deadline < now:
+        cutoff = self.effective_closing_date if (self.allows_late and self.effective_closing_date) else self.effective_deadline
+        if cutoff and cutoff < now:
             return "CLOSED"
         return "OPEN"

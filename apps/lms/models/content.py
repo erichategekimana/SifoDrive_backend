@@ -14,7 +14,12 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.models import BaseModel, OrderedModel
-from apps.lms.models.choices import LessonType, RoadSignCategory
+from apps.lms.models.choices import (
+    LessonType,
+    RoadSignCategory,
+    LessonContentType,
+    DocumentFormat,
+)
 from apps.lms.models.curriculum import Course
 
 
@@ -99,6 +104,14 @@ class Module(OrderedModel):
         help_text=_(
             "If True, this module is only available to registered students and staff. "
             "Guests cannot view this module."
+        ),
+    )
+    is_outside_resource = models.BooleanField(
+        _("Outside Resource"),
+        default=False,
+        db_index=True,
+        help_text=_(
+            "If True, this module is flagged as an outside resource and displayed with blue text."
         ),
     )
 
@@ -223,6 +236,14 @@ class Lesson(OrderedModel):
             "Guests are blocked even if they are authenticated."
         ),
     )
+    is_outside_resource = models.BooleanField(
+        _("Outside Resource"),
+        default=False,
+        db_index=True,
+        help_text=_(
+            "If True, this lesson is flagged as an outside resource and displayed with blue text."
+        ),
+    )
 
     class Meta(OrderedModel.Meta):
         verbose_name = _("Lesson")
@@ -240,6 +261,11 @@ class Lesson(OrderedModel):
     def question_count(self) -> int:
         """Number of quiz questions attached to this lesson (QUIZ type only)."""
         return self.lesson_questions.filter(question__is_active=True).count()
+
+    @property
+    def content_count(self) -> int:
+        """Number of modular content blocks attached to this lesson."""
+        return self.contents.count()
 
     def can_access(self, user) -> bool:
         """
@@ -259,6 +285,74 @@ class Lesson(OrderedModel):
         if self.is_student_only:
             return user.role == UserRole.STUDENT
         return True  # Authenticated guest or student
+
+
+# ===========================================================================
+# Lesson Content Item (One Lesson -> Multiple Contents)
+# ===========================================================================
+
+class LessonContent(OrderedModel):
+    """
+    A single learning content unit within a Lesson.
+    One lesson can contain multiple content items of different formats:
+      - TEXT: Text input (markdown, rich text, notes)
+      - AUDIO: Audio recording file or streaming URL
+      - VIDEO: Video lecture file or external embed link (YouTube, Vimeo, MP4)
+      - IMAGE: Image, diagram, road layout graphic, or infographic (file or URL)
+      - DOCUMENT: PDF, MS PowerPoint (.ppt, .pptx), Presentation / Slides, or Canva design
+    """
+
+    lesson = models.ForeignKey(
+        Lesson,
+        on_delete=models.CASCADE,
+        related_name="contents",
+        verbose_name=_("Lesson"),
+    )
+    title = models.CharField(_("Content Title"), max_length=200, blank=True)
+    content_type = models.CharField(
+        _("Content Type"),
+        max_length=20,
+        choices=LessonContentType.choices,
+        default=LessonContentType.TEXT,
+        db_index=True,
+    )
+
+    # ── Content Payloads ─────────────────────────────────────────────────────
+    content_text = models.TextField(
+        _("Text Content"),
+        blank=True,
+        help_text=_("Markdown/HTML body. Used for TEXT content, instructions, or notes."),
+    )
+    media_file = models.FileField(
+        _("Media / Document File"),
+        upload_to="lms/lessons/contents/%Y/%m/",
+        null=True,
+        blank=True,
+        help_text=_("Uploaded audio, video, image, PDF, or PowerPoint presentation file."),
+    )
+    media_url = models.URLField(
+        _("Media / Embed URL"),
+        max_length=1000,
+        blank=True,
+        help_text=_("External URL: video link (YouTube, Vimeo), audio stream, Canva presentation link/embed, Google Slides, etc."),
+    )
+    document_type = models.CharField(
+        _("Document Format"),
+        max_length=30,
+        choices=DocumentFormat.choices,
+        default=DocumentFormat.OTHER,
+        blank=True,
+        help_text=_("Format specification for DOCUMENT: PDF, POWERPOINT, PRESENTATION, or CANVA."),
+    )
+    duration_minutes = models.PositiveSmallIntegerField(_("Duration (minutes)"), default=0)
+
+    class Meta(OrderedModel.Meta):
+        verbose_name = _("Lesson Content")
+        verbose_name_plural = _("Lesson Contents")
+
+    def __str__(self) -> str:
+        return f"{self.lesson.title} › [{self.content_type}] {self.title or 'Content ' + str(self.sort_order)}"
+
 
 
 # ===========================================================================

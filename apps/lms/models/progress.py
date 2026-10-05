@@ -60,6 +60,16 @@ class StudentProgress(BaseModel):
         default=0,
         help_text=_("Number of times the student has attempted this quiz."),
     )
+    is_late = models.BooleanField(
+        _("Is Late Submission"),
+        default=False,
+        help_text=_("True if this assignment or quiz was submitted after the designated deadline."),
+    )
+    days_late = models.PositiveSmallIntegerField(
+        _("Days Late"),
+        default=0,
+        help_text=_("Number of full/partial days submitted past the due date."),
+    )
 
     class Meta(BaseModel.Meta):
         verbose_name = _("Student Progress")
@@ -73,29 +83,35 @@ class StudentProgress(BaseModel):
         status = "✓" if self.is_completed else "○"
         return f"[{status}] {self.student.phone_number[-4:]} — {self.lesson.title}"
 
-    def mark_complete(self, time_spent: int = 0) -> None:
+    def mark_complete(self, time_spent: int = 0, is_late: bool = False, days_late: int = 0) -> None:
         """Mark this lesson as completed. Idempotent."""
         if self.is_completed:
             return
         self.is_completed = True
         self.completed_at = timezone.now()
+        if is_late:
+            self.is_late = True
+            self.days_late = max(1, days_late)
         if time_spent:
             self.time_spent_seconds = time_spent
-        self.save(update_fields=["is_completed", "completed_at", "time_spent_seconds", "updated_at"])
+        self.save(update_fields=["is_completed", "completed_at", "time_spent_seconds", "is_late", "days_late", "updated_at"])
 
-    def record_quiz_attempt(self, score: int, time_spent: int = 0) -> None:
+    def record_quiz_attempt(self, score: int, time_spent: int = 0, is_late: bool = False, days_late: int = 0) -> None:
         """Record a quiz attempt. Updates score if improved."""
         self.quiz_attempts += 1
         # Keep best score across attempts
         if self.quiz_score is None or score > self.quiz_score:
             self.quiz_score = score
+        if is_late:
+            self.is_late = True
+            self.days_late = max(self.days_late, max(1, days_late))
         if time_spent:
             self.time_spent_seconds += time_spent
         if score >= 70:  # Pass threshold
-            self.mark_complete(time_spent=0)
+            self.mark_complete(time_spent=0, is_late=is_late, days_late=days_late)
         self.save(update_fields=[
             "quiz_attempts", "quiz_score", "time_spent_seconds",
-            "is_completed", "completed_at", "updated_at",
+            "is_completed", "completed_at", "is_late", "days_late", "updated_at",
         ])
 
 

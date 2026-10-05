@@ -195,10 +195,18 @@ class TutorCohortModuleReleaseUpdateView(SuccessResponseMixin, APIView):
         )
 
 
+def _is_admin(user) -> bool:
+    return user.is_authenticated and (
+        user.role in (UserRole.TRAINING_ADMIN, UserRole.SYSTEM_ADMIN) or user.is_superuser
+    )
+
+
 class TutorCohortQuizzesView(SuccessResponseMixin, APIView):
     """
     GET /api/v1/lms/tutor/cohorts/<uuid:cohort_id>/courses/<uuid:course_id>/quizzes/
     Lists all course quizzes with their cohort-specific schedule and status.
+    Tutors should never see draft quizzes created by training or system admins.
+    Those set to 'OPEN' are the ones tutors can control visibility for.
     """
 
     permission_classes = [IsStaffOrAdmin]
@@ -210,7 +218,10 @@ class TutorCohortQuizzesView(SuccessResponseMixin, APIView):
         except Course.DoesNotExist:
             raise NotFound("Course not found.")
 
-        quizzes = course.quizzes.filter(is_deleted=False).order_by("-created_at")
+        # Tutors should never see draft quizzes created by training/system admins.
+        # Those that are set to 'OPEN' are the ones tutors can control visibility for their cohorts.
+        course_quizzes = course.quizzes.filter(is_deleted=False, is_published=True).order_by("-created_at")
+        quizzes = [q for q in course_quizzes if q.status == "OPEN"]
         schedules = {
             s.quiz_id: s
             for s in CohortQuizSchedule.objects.filter(cohort=cohort, quiz__in=quizzes)
@@ -245,6 +256,7 @@ class TutorCohortQuizScheduleView(SuccessResponseMixin, APIView):
     """
     POST /api/v1/lms/tutor/cohorts/<uuid:cohort_id>/quizzes/<uuid:quiz_id>/schedule/
     Schedules, publishes, or locks a quiz for this specific cohort.
+    Only quizzes set to 'OPEN' are allowed to have cohort visibility managed by tutors.
     """
 
     permission_classes = [IsStaffOrAdmin]
@@ -252,7 +264,9 @@ class TutorCohortQuizScheduleView(SuccessResponseMixin, APIView):
     def post(self, request, cohort_id, quiz_id):
         cohort = _get_cohort_and_validate_access(cohort_id, request.user)
         try:
-            quiz = Quiz.objects.get(id=quiz_id, is_deleted=False)
+            quiz = Quiz.objects.get(id=quiz_id, is_deleted=False, is_published=True)
+            if quiz.status != "OPEN" and not _is_admin(request.user):
+                raise PermissionDenied("Only Open quizzes can have cohort visibility and scheduling controlled by tutors.")
         except Quiz.DoesNotExist:
             raise NotFound("Quiz not found.")
 
@@ -264,6 +278,8 @@ class TutorCohortQuizScheduleView(SuccessResponseMixin, APIView):
             quiz=quiz,
             open_date=serializer.validated_data.get("open_date"),
             deadline=serializer.validated_data.get("deadline"),
+            closing_date=serializer.validated_data.get("closing_date"),
+            allow_late_submission=serializer.validated_data.get("allow_late_submission", False),
             is_published=serializer.validated_data.get("is_published", True),
             is_locked=serializer.validated_data.get("is_locked", False),
             user=request.user,

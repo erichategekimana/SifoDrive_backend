@@ -91,6 +91,11 @@ class SupportAnnouncementsView(SuccessResponseMixin, APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
+        from apps.lms.models import Course
+        course = Course.objects.filter(is_deleted=False).first()
+        course_id = str(course.id) if course else None
+        course_title = course.title if course else "Road Regulations & Traffic Signs"
+
         bulletins = [
             {
                 "id": "ann-001",
@@ -103,6 +108,10 @@ class SupportAnnouncementsView(SuccessResponseMixin, APIView):
                     "Ihuza rya Google Meet riri mu gice cy'Amatsinda (Groups tab)."
                 ),
                 "is_pinned": True,
+                "course_id": course_id,
+                "course_name": course_title,
+                "course_title": course_title,
+                "target_url": f"/courses/{course_id}" if course_id else "/courses",
             },
             {
                 "id": "ann-002",
@@ -115,6 +124,10 @@ class SupportAnnouncementsView(SuccessResponseMixin, APIView):
                     "hano kuri Sifo Drive kugira ngo wemererwe."
                 ),
                 "is_pinned": False,
+                "course_id": course_id,
+                "course_name": course_title,
+                "course_title": course_title,
+                "target_url": f"/courses/{course_id}" if course_id else "/courses",
             },
             {
                 "id": "ann-003",
@@ -127,6 +140,10 @@ class SupportAnnouncementsView(SuccessResponseMixin, APIView):
                     "Nta kibazo kigaragara ku mwirondoro cyangwa amanota yanyu."
                 ),
                 "is_pinned": False,
+                "course_id": course_id,
+                "course_name": course_title,
+                "course_title": course_title,
+                "target_url": f"/courses/{course_id}" if course_id else "/courses",
             },
         ]
         return self.success_response(data=bulletins)

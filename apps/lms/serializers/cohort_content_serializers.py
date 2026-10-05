@@ -38,6 +38,9 @@ class CohortQuizScheduleSerializer(serializers.ModelSerializer):
     quiz_title = serializers.CharField(source="quiz.title", read_only=True)
     quiz_title_kinyarwanda = serializers.CharField(source="quiz.title_kinyarwanda", read_only=True)
     effective_deadline = serializers.DateTimeField(read_only=True)
+    effective_closing_date = serializers.DateTimeField(read_only=True)
+    allows_late = serializers.BooleanField(read_only=True)
+    is_final_exam = serializers.BooleanField(source="quiz.is_final_exam", read_only=True, default=False)
     status_for_cohort = serializers.CharField(read_only=True)
     allow_tutor_scheduling = serializers.BooleanField(source="quiz.allow_tutor_scheduling", read_only=True)
 
@@ -53,8 +56,13 @@ class CohortQuizScheduleSerializer(serializers.ModelSerializer):
             "is_locked",
             "open_date",
             "deadline",
+            "closing_date",
+            "allow_late_submission",
+            "allows_late",
+            "is_final_exam",
             "extended_deadline",
             "effective_deadline",
+            "effective_closing_date",
             "extension_reason",
             "status_for_cohort",
             "allow_tutor_scheduling",
@@ -65,6 +73,8 @@ class CohortQuizScheduleSerializer(serializers.ModelSerializer):
 class ScheduleQuizPayloadSerializer(serializers.Serializer):
     open_date = serializers.DateTimeField(required=False, allow_null=True)
     deadline = serializers.DateTimeField(required=False, allow_null=True)
+    closing_date = serializers.DateTimeField(required=False, allow_null=True)
+    allow_late_submission = serializers.BooleanField(required=False, default=False)
     is_published = serializers.BooleanField(required=False, default=True)
     is_locked = serializers.BooleanField(required=False, default=False)
 

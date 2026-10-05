@@ -708,7 +708,7 @@ class CohortMaterialService:
     @classmethod
     @transaction.atomic
     def schedule_cohort_quiz(
-        cls, cohort, quiz, open_date=None, deadline=None, is_published=True, is_locked=False, user=None
+        cls, cohort, quiz, open_date=None, deadline=None, closing_date=None, allow_late_submission=False, is_published=True, is_locked=False, user=None
     ):
         from rest_framework.exceptions import PermissionDenied
         from apps.accounts.constants import UserRole
@@ -719,12 +719,18 @@ class CohortMaterialService:
                 "Training Admin has restricted scheduling for this quiz to a global schedule."
             )
 
+        # Final exam rule
+        if quiz.is_final_exam and allow_late_submission:
+            raise PermissionDenied("Final exams cannot have late submissions.")
+
         schedule, _ = CohortQuizSchedule.objects.update_or_create(
             cohort=cohort,
             quiz=quiz,
             defaults={
                 "open_date": open_date,
                 "deadline": deadline,
+                "closing_date": closing_date,
+                "allow_late_submission": allow_late_submission if not quiz.is_final_exam else False,
                 "is_published": is_published,
                 "is_locked": is_locked,
                 "scheduled_by": user,

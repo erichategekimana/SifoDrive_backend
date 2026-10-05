@@ -28,6 +28,8 @@ from .content_serializers import (
     LessonListSerializer,
     LessonDetailSerializer,
     LessonWriteSerializer,
+    LessonContentSerializer,
+    LessonContentWriteSerializer,
     LessonBookmarkSerializer,
     LessonQuestionSerializer,
 )
@@ -38,6 +40,7 @@ from .curriculum_serializers import (
     CourseListSerializer,
     CourseDetailSerializer,
     CourseWriteSerializer,
+    CourseHomepageSerializer,
     CourseStatsSerializer,
     CurriculumListSerializer,
     CurriculumDetailSerializer,

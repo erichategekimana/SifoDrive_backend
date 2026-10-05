@@ -179,7 +179,33 @@ class Quiz(BaseModel):
         _("Deadline / Due Date"),
         null=True,
         blank=True,
-        help_text=_("When the quiz closes. Submissions after this date are blocked."),
+        help_text=_("Standard due date. Submissions after this date are flagged as late if allowed."),
+    )
+    closing_date = models.DateTimeField(
+        _("Closing Date / Cutoff"),
+        null=True,
+        blank=True,
+        help_text=_(
+            "Final cutoff date after which no submissions are accepted, even if late submissions are enabled."
+        ),
+    )
+    allow_late_submission = models.BooleanField(
+        _("Allow Late Submission"),
+        default=False,
+        help_text=_(
+            "If True, students can submit past the deadline up to closing_date. "
+            "Late submissions are flagged as late with the number of days late. "
+            "Never allowed for final exams."
+        ),
+    )
+    is_final_exam = models.BooleanField(
+        _("Is Final Exam"),
+        default=False,
+        db_index=True,
+        help_text=_(
+            "Designates this assessment as a School Theory Final Exam. "
+            "Final exams enforce strict deadline cutoff with no late submissions allowed."
+        ),
     )
     time_limit_minutes = models.PositiveSmallIntegerField(
         _("Time Limit (minutes)"), default=0, help_text=_("0 indicates no time limit.")
@@ -246,15 +272,16 @@ class Quiz(BaseModel):
         Dynamic status:
         - 'DRAFT' if not published
         - 'SCHEDULED' if published but open_date is in the future
-        - 'CLOSED' if deadline passed
-        - 'OPEN' if published and within window
+        - 'CLOSED' if cutoff passed (closing_date or deadline)
+        - 'OPEN' if published and within submission window
         """
         if not self.is_published:
             return "DRAFT"
         now = timezone.now()
         if self.open_date and self.open_date > now:
             return "SCHEDULED"
-        if self.deadline and self.deadline < now:
+        effective_close = self.closing_date if (self.allow_late_submission and not self.is_final_exam and self.closing_date) else self.deadline
+        if effective_close and effective_close < now:
             return "CLOSED"
         return "OPEN"
 

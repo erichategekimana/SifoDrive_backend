@@ -28,6 +28,7 @@ from apps.accounts.constants import UserRole
 from apps.lms.models import Course, Curriculum
 from apps.lms.serializers import (
     CourseDetailSerializer,
+    CourseHomepageSerializer,
     CourseListSerializer,
     CourseStatsSerializer,
     CourseWriteSerializer,
@@ -350,3 +351,46 @@ class CourseStatsView(SuccessResponseMixin, APIView):
             raise NotFound("Course not found.")
         stats = CourseService.get_course_stats(course)
         return self.success_response(data=CourseStatsSerializer(stats).data)
+
+
+class CourseHomepageView(SuccessResponseMixin, APIView):
+    """
+    GET   /lms/courses/<id>/homepage/ — Retrieve course home page data.
+    PATCH /lms/courses/<id>/homepage/ — Update course home page data (Tutors + Admins).
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_course(self, pk):
+        try:
+            return Course.objects.get(pk=pk, is_deleted=False)
+        except Course.DoesNotExist:
+            raise NotFound("Course not found.")
+
+    def get(self, request, pk, *args, **kwargs):
+        course = self.get_course(pk)
+        return self.success_response(data={
+            "course_id": str(course.id),
+            "title": course.title,
+            "homepage_data": course.homepage_data or {},
+        })
+
+    def patch(self, request, pk, *args, **kwargs):
+        if not _is_content_staff(request.user):
+            raise PermissionDenied("Only tutors and administrators can edit course homepages.")
+        course = self.get_course(pk)
+        homepage_data = request.data.get("homepage_data", request.data)
+        if not isinstance(homepage_data, dict):
+            raise ValidationError({"homepage_data": "Must be a valid JSON dictionary."})
+
+        course.homepage_data = homepage_data
+        course.updated_by = request.user
+        course.save(update_fields=["homepage_data", "updated_by", "updated_at"])
+
+        return self.success_response(
+            data={
+                "course_id": str(course.id),
+                "title": course.title,
+                "homepage_data": course.homepage_data,
+            },
+            message=f"Homepage for '{course.title}' saved successfully."
+        )

@@ -30,6 +30,7 @@ from apps.lms.views.curriculum_views import (  # noqa: F401
     CoursePublishView,
     CourseUnpublishView,
     CourseStatsView,
+    CourseHomepageView,
 )
 
 from apps.lms.views.content_views import (  # noqa: F401
@@ -45,6 +46,11 @@ from apps.lms.views.content_views import (  # noqa: F401
     LessonDetailView,
     LessonUpdateView,
     LessonDeleteView,
+    LessonContentListCreateView,
+    LessonContentDetailView,
+    LessonContentUpdateView,
+    LessonContentDeleteView,
+    LessonContentReorderView,
     LessonQuestionListView,
     LessonQuestionAddView,
     LessonQuestionRemoveView,

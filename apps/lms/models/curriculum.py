@@ -160,6 +160,12 @@ class Course(OrderedModel):
         default=0,
         help_text=_("Approximate time to complete this course in hours."),
     )
+    homepage_data = models.JSONField(
+        _("Homepage Data"),
+        default=dict,
+        blank=True,
+        help_text=_("Customized course homepage blocks, styling, images, and attachments."),
+    )
 
     # ── Authorship ──────────────────────────────────────────────────────────
     created_by = models.ForeignKey(

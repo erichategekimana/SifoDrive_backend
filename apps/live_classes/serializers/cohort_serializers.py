@@ -19,6 +19,8 @@ class UserBriefSerializer(serializers.ModelSerializer):
 class CohortListSerializer(serializers.ModelSerializer):
     """List serializer for Cohort / student batches."""
     assigned_tutors = UserBriefSerializer(many=True, read_only=True)
+    created_by_detail = UserBriefSerializer(source="created_by", read_only=True)
+    created_by_name = serializers.CharField(source="created_by.get_full_name", read_only=True)
     student_count = serializers.IntegerField(read_only=True)
     tutor_count = serializers.IntegerField(read_only=True)
     ongoing_student_count = serializers.SerializerMethodField()
@@ -58,6 +60,9 @@ class CohortListSerializer(serializers.ModelSerializer):
             "student_count",
             "tutor_count",
             "ongoing_student_count",
+            "created_by",
+            "created_by_name",
+            "created_by_detail",
             "created_at",
         ]
         read_only_fields = [
@@ -68,6 +73,9 @@ class CohortListSerializer(serializers.ModelSerializer):
             "student_count",
             "tutor_count",
             "ongoing_student_count",
+            "created_by",
+            "created_by_name",
+            "created_by_detail",
             "created_at",
         ]
 
@@ -75,6 +83,8 @@ class CohortListSerializer(serializers.ModelSerializer):
 class CohortDetailSerializer(serializers.ModelSerializer):
     """Detailed serializer with assigned tutors and student roster summary."""
     assigned_tutors = UserBriefSerializer(many=True, read_only=True)
+    created_by_detail = UserBriefSerializer(source="created_by", read_only=True)
+    created_by_name = serializers.CharField(source="created_by.get_full_name", read_only=True)
     student_count = serializers.IntegerField(read_only=True)
     tutor_count = serializers.IntegerField(read_only=True)
     ongoing_student_count = serializers.SerializerMethodField()
@@ -114,6 +124,9 @@ class CohortDetailSerializer(serializers.ModelSerializer):
             "student_count",
             "tutor_count",
             "ongoing_student_count",
+            "created_by",
+            "created_by_name",
+            "created_by_detail",
             "created_at",
             "updated_at",
         ]
@@ -124,6 +137,9 @@ class CohortDetailSerializer(serializers.ModelSerializer):
             "student_count",
             "tutor_count",
             "ongoing_student_count",
+            "created_by",
+            "created_by_name",
+            "created_by_detail",
             "created_at",
             "updated_at",
         ]

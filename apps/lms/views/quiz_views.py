@@ -143,7 +143,9 @@ class QuizListCreateView(SuccessResponseMixin, generics.ListCreateAPIView):
             "course", "module", "created_by"
         ).prefetch_related("items").all()
 
-        if not _is_content_staff(user):
+        if not _is_admin(user):
+            # Tutors, Students, and Guests cannot see drafts.
+            # Drafts are strictly training admin and system admin drafts.
             qs = qs.filter(is_published=True)
 
         course_id = self.request.query_params.get("course")
@@ -166,14 +168,29 @@ class QuizListCreateView(SuccessResponseMixin, generics.ListCreateAPIView):
         if status_filter:
             filtered = [q for q in queryset if q.status.lower() == status_filter.lower()]
             return self.success_response(data=QuizListSerializer(filtered, many=True).data)
+
+        # Tutors should ONLY see quizzes that are 'OPEN' (published and active for scheduling).
+        # Drafts are strictly for training admin and system admin.
+        if request.user.is_authenticated and request.user.role == UserRole.TUTOR:
+            open_quizzes = [q for q in queryset if q.status == "OPEN"]
+            return self.success_response(data=QuizListSerializer(open_quizzes, many=True).data)
+
+        # Students and guests should also only see non-drafts
+        if request.user.is_authenticated and request.user.role in (UserRole.STUDENT, UserRole.GUEST):
+            non_drafts = [q for q in queryset if q.status != "DRAFT"]
+            return self.success_response(data=QuizListSerializer(non_drafts, many=True).data)
+
         return self.success_response(data=self.get_serializer(queryset, many=True).data)
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
 
     def create(self, request, *args, **kwargs):
         if not _is_admin(request.user):
             raise PermissionDenied("Only administrators can create quizzes.")
         serializer = QuizWriteSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-        quiz = serializer.save()
+        quiz = serializer.save(created_by=request.user)
         return self.created_response(
             data=QuizDetailSerializer(quiz).data,
             message="Quiz created successfully.",
@@ -195,7 +212,11 @@ class QuizDetailUpdateDeleteView(SoftDeleteMixin, SuccessResponseMixin, generics
 
     def get_object(self):
         try:
-            return self.get_queryset().get(pk=self.kwargs["pk"])
+            quiz = self.get_queryset().get(pk=self.kwargs["pk"])
+            if not _is_admin(self.request.user):
+                if not quiz.is_published or quiz.status == "DRAFT":
+                    raise NotFound("Quiz not found.")
+            return quiz
         except Quiz.DoesNotExist:
             raise NotFound("Quiz not found.")
 

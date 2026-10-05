@@ -35,6 +35,7 @@ class CohortService:
         assigned_tutors: Optional[List[User]] = None,
         students: Optional[List[User]] = None,
         status: str = CohortStatus.QUEUE,
+        created_by: Optional[User] = None,
     ) -> Cohort:
         """
         Create a new cohort defaulting to 'queue' status and 60 student capacity.
@@ -64,6 +65,7 @@ class CohortService:
             schedule_description=schedule_description.strip(),
             description=description.strip(),
             status=CohortStatus.QUEUE,
+            created_by=created_by,
         )
 
         if assigned_tutors:

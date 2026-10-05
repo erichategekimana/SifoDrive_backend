@@ -24,6 +24,7 @@ from .models import (
     HelpTicket,
     Lesson,
     LessonBookmark,
+    LessonContent,
     LessonQuestion,
     Module,
     Quiz,
@@ -81,6 +82,19 @@ class LessonQuestionInline(admin.TabularInline):
     fields = ["question", "sort_order"]
     ordering = ["sort_order"]
     autocomplete_fields = ["question"]
+
+
+class LessonContentInline(admin.StackedInline):
+    """Contents inline inside Lesson admin."""
+
+    model  = LessonContent
+    extra  = 0
+    fields = [
+        "title", "content_type", "document_type", "sort_order",
+        "duration_minutes", "content_text", "media_file", "media_url",
+    ]
+    ordering = ["sort_order"]
+    show_change_link = True
 
 
 # ===========================================================================
@@ -262,7 +276,7 @@ class LessonAdmin(admin.ModelAdmin):
     search_fields = ["title", "module__title", "module__course__title"]
     ordering = ["module__course__sort_order", "module__sort_order", "sort_order"]
     readonly_fields = ["id", "created_at", "updated_at"]
-    inlines = [LessonQuestionInline]
+    inlines = [LessonContentInline, LessonQuestionInline]
 
     fieldsets = (
         (_("Identity"), {
@@ -284,6 +298,7 @@ class LessonAdmin(admin.ModelAdmin):
         }),
     )
 
+
     @admin.display(description=_("Access"))
     def access_flags(self, obj):
         flags = []
@@ -292,6 +307,16 @@ class LessonAdmin(admin.ModelAdmin):
         if obj.is_student_only:
             flags.append(format_html('<span style="color:#7c3aed;">🎓 Students</span>'))
         return format_html(" &nbsp;".join(flags)) if flags else "—"
+
+
+@admin.register(LessonContent)
+class LessonContentAdmin(admin.ModelAdmin):
+    list_display = ["title", "lesson", "content_type", "document_type", "sort_order", "duration_minutes"]
+    list_filter  = ["content_type", "document_type", "lesson__module__course"]
+    search_fields = ["title", "lesson__title", "content_text"]
+    ordering = ["lesson", "sort_order"]
+    readonly_fields = ["id", "created_at", "updated_at"]
+
 
 
 # ===========================================================================

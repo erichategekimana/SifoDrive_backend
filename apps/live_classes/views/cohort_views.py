@@ -61,6 +61,7 @@ class CohortListCreateView(SuccessResponseMixin, generics.ListCreateAPIView):
             schedule_description=data.get("schedule_description", ""),
             description=data.get("description", ""),
             status=data.get("status", CohortStatus.QUEUE),
+            created_by=self.request.user,
         )
         serializer.instance = cohort
 

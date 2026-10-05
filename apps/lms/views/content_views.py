@@ -29,9 +29,11 @@ from rest_framework.views import APIView
 from apps.core.mixins import SuccessResponseMixin, SoftDeleteMixin
 from apps.accounts.constants import UserRole
 from apps.lms.models import (
-    Course, Lesson, LessonBookmark, LessonQuestion, Module, QuizQuestion, RoadSign
+    Course, Lesson, LessonBookmark, LessonContent, LessonQuestion, Module, QuizQuestion, RoadSign
 )
 from apps.lms.serializers import (
+    LessonContentSerializer,
+    LessonContentWriteSerializer,
     LessonDetailSerializer,
     LessonListSerializer,
     LessonQuestionSerializer,
@@ -267,6 +269,130 @@ class LessonDeleteView(SoftDeleteMixin, SuccessResponseMixin, generics.DestroyAP
         if not _is_admin(self.request.user):
             raise PermissionDenied("Only system administrators can delete lessons.")
         return super().get_object()
+
+
+# ===========================================================================
+# LESSON CONTENT VIEWS (Multi-content per lesson)
+# ===========================================================================
+
+class LessonContentListCreateView(SuccessResponseMixin, generics.ListCreateAPIView):
+    """
+    GET  /lms/lessons/<lesson_id>/contents/ — List all contents for a lesson
+    POST /lms/lessons/<lesson_id>/contents/ — Create a new content item for a lesson
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return LessonContentWriteSerializer
+        return LessonContentSerializer
+
+    def get_queryset(self):
+        lesson_id = self.kwargs["lesson_id"]
+        try:
+            lesson = Lesson.objects.get(pk=lesson_id)
+        except Lesson.DoesNotExist:
+            raise NotFound("Lesson not found.")
+        if not ContentGateService.can_access_lesson(self.request.user, lesson):
+            raise PermissionDenied("You do not have access to this lesson's content.")
+        return LessonContent.objects.filter(lesson=lesson).order_by("sort_order")
+
+    def create(self, request, *args, **kwargs):
+        if not _is_content_staff(request.user):
+            raise PermissionDenied("Only tutors and administrators can add lesson contents.")
+        lesson_id = self.kwargs["lesson_id"]
+        try:
+            lesson = Lesson.objects.get(pk=lesson_id)
+        except Lesson.DoesNotExist:
+            raise NotFound("Lesson not found.")
+
+        data = request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
+        data["lesson"] = lesson.id
+        if "sort_order" not in data or not data["sort_order"]:
+            last_order = LessonContent.objects.filter(lesson=lesson).count()
+            data["sort_order"] = last_order + 1
+
+        serializer = LessonContentWriteSerializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        content_item = serializer.save()
+        return self.created_response(
+            data=LessonContentSerializer(content_item).data,
+            message="Content added to lesson.",
+        )
+
+
+class LessonContentDetailView(SuccessResponseMixin, generics.RetrieveAPIView):
+    """GET /lms/contents/<pk>/ — Retrieve single content item."""
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class   = LessonContentSerializer
+    queryset           = LessonContent.objects.select_related("lesson")
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if not ContentGateService.can_access_lesson(request.user, instance.lesson):
+            raise PermissionDenied("You do not have access to this content.")
+        return self.success_response(data=self.get_serializer(instance).data)
+
+
+class LessonContentUpdateView(SuccessResponseMixin, generics.UpdateAPIView):
+    """PATCH/PUT /lms/contents/<pk>/edit/ — Tutor+Admin only."""
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class   = LessonContentWriteSerializer
+    queryset           = LessonContent.objects.select_related("lesson")
+    http_method_names  = ["patch", "put"]
+
+    def update(self, request, *args, **kwargs):
+        if not _is_content_staff(request.user):
+            raise PermissionDenied("Only tutors and administrators can edit lesson contents.")
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return self.success_response(
+            data=LessonContentSerializer(serializer.instance).data,
+            message="Lesson content updated.",
+        )
+
+
+class LessonContentDeleteView(SoftDeleteMixin, SuccessResponseMixin, generics.DestroyAPIView):
+    """DELETE /lms/contents/<pk>/delete/ — Tutor+Admin only."""
+    permission_classes = [permissions.IsAuthenticated]
+    queryset           = LessonContent.objects.all()
+
+    def get_object(self):
+        if not _is_content_staff(self.request.user):
+            raise PermissionDenied("Only tutors and administrators can remove lesson contents.")
+        return super().get_object()
+
+
+class LessonContentReorderView(SuccessResponseMixin, APIView):
+    """
+    POST /lms/lessons/<lesson_id>/contents/reorder/
+    Payload: { "content_ids": ["uuid1", "uuid2", ...] }
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, lesson_id):
+        if not _is_content_staff(request.user):
+            raise PermissionDenied("Only tutors and administrators can reorder lesson contents.")
+        try:
+            lesson = Lesson.objects.get(pk=lesson_id)
+        except Lesson.DoesNotExist:
+            raise NotFound("Lesson not found.")
+
+        content_ids = request.data.get("content_ids", [])
+        if not isinstance(content_ids, list):
+            raise ValidationError({"content_ids": "Must be a list of content IDs."})
+
+        for order, cid in enumerate(content_ids, start=1):
+            LessonContent.objects.filter(id=cid, lesson=lesson).update(sort_order=order)
+
+        updated_contents = LessonContent.objects.filter(lesson=lesson).order_by("sort_order")
+        return self.success_response(
+            data=LessonContentSerializer(updated_contents, many=True).data,
+            message="Lesson contents reordered.",
+        )
+
 
 
 # ===========================================================================
