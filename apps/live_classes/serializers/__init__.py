@@ -24,6 +24,8 @@ from apps.live_classes.serializers.class_serializers import (
     LiveClassListSerializer,
     LiveClassRecurringScheduleSerializer,
     LiveClassRescheduleSerializer,
+    LiveClassScheduleSerializer,
+    LiveClassScheduleUpdateSerializer,
 )
 from apps.live_classes.serializers.attendance_serializers import (
     BatchAttendanceItemSerializer,

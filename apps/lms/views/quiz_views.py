@@ -20,7 +20,7 @@ from rest_framework.views import APIView
 from apps.core.mixins import SuccessResponseMixin, SoftDeleteMixin
 from apps.core.pagination import LargeBatchPagination
 from apps.accounts.constants import UserRole
-from apps.lms.models import Quiz, QuizQuestion
+from apps.lms.models import Quiz, QuizQuestion, CohortQuizSchedule
 from apps.lms.serializers import (
     QuizDetailSerializer,
     QuizListSerializer,
@@ -164,23 +164,56 @@ class QuizListCreateView(SuccessResponseMixin, generics.ListCreateAPIView):
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
+
+        # Students and guests: strictly only get quizzes that their tutor has unlocked & published for their cohort.
+        # A quiz being published by admins does not mean students get it; it is controlled by tutors per cohort.
+        if request.user.is_authenticated and request.user.role in (UserRole.STUDENT, UserRole.GUEST):
+            user = request.user
+            enrolled_cohorts = user.enrolled_cohorts.filter(is_active=True)
+            if not enrolled_cohorts.exists():
+                enrolled_cohorts = user.enrolled_cohorts.all()
+            if not enrolled_cohorts.exists():
+                from apps.live_classes.models import Cohort
+                default_cohort = Cohort.objects.filter(is_active=True).first()
+                if default_cohort:
+                    default_cohort.students.add(user)
+                    enrolled_cohorts = user.enrolled_cohorts.all()
+
+            enrolled_cohort_ids = list(enrolled_cohorts.values_list("id", flat=True))
+            if not enrolled_cohort_ids:
+                return self.success_response(data=[])
+
+            # A student ONLY gets quizzes that their tutor has unlocked (is_locked=False) and published (is_published=True) for their cohort.
+            unlocked_quiz_ids = set(
+                CohortQuizSchedule.objects.filter(
+                    cohort_id__in=enrolled_cohort_ids,
+                    is_published=True,
+                    is_locked=False,
+                ).values_list("quiz_id", flat=True)
+            )
+
+            allowed_quizzes = [q for q in queryset if q.status != "DRAFT" and q.id in unlocked_quiz_ids]
+
+            status_filter = request.query_params.get("status")
+            if status_filter:
+                allowed_quizzes = [q for q in allowed_quizzes if q.status.lower() == status_filter.lower()]
+
+            return self.success_response(data=QuizListSerializer(allowed_quizzes, many=True, context={"request": request}).data)
+
+        # Tutors see all non-draft quizzes that admins published, so they can manage/lock/unlock for their cohorts
+        if request.user.is_authenticated and request.user.role == UserRole.TUTOR:
+            non_drafts = [q for q in queryset if q.status != "DRAFT"]
+            status_filter = request.query_params.get("status")
+            if status_filter:
+                non_drafts = [q for q in non_drafts if q.status.lower() == status_filter.lower()]
+            return self.success_response(data=QuizListSerializer(non_drafts, many=True, context={"request": request}).data)
+
         status_filter = request.query_params.get("status")
         if status_filter:
             filtered = [q for q in queryset if q.status.lower() == status_filter.lower()]
-            return self.success_response(data=QuizListSerializer(filtered, many=True).data)
+            return self.success_response(data=QuizListSerializer(filtered, many=True, context={"request": request}).data)
 
-        # Tutors should ONLY see quizzes that are 'OPEN' (published and active for scheduling).
-        # Drafts are strictly for training admin and system admin.
-        if request.user.is_authenticated and request.user.role == UserRole.TUTOR:
-            open_quizzes = [q for q in queryset if q.status == "OPEN"]
-            return self.success_response(data=QuizListSerializer(open_quizzes, many=True).data)
-
-        # Students and guests should also only see non-drafts
-        if request.user.is_authenticated and request.user.role in (UserRole.STUDENT, UserRole.GUEST):
-            non_drafts = [q for q in queryset if q.status != "DRAFT"]
-            return self.success_response(data=QuizListSerializer(non_drafts, many=True).data)
-
-        return self.success_response(data=self.get_serializer(queryset, many=True).data)
+        return self.success_response(data=self.get_serializer(queryset, many=True, context={"request": request}).data)
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
@@ -213,9 +246,25 @@ class QuizDetailUpdateDeleteView(SoftDeleteMixin, SuccessResponseMixin, generics
     def get_object(self):
         try:
             quiz = self.get_queryset().get(pk=self.kwargs["pk"])
-            if not _is_admin(self.request.user):
+            user = self.request.user
+            if not _is_admin(user):
                 if not quiz.is_published or quiz.status == "DRAFT":
                     raise NotFound("Quiz not found.")
+                if user.is_authenticated and user.role in (UserRole.STUDENT, UserRole.GUEST):
+                    enrolled_cohorts = user.enrolled_cohorts.filter(is_active=True)
+                    if not enrolled_cohorts.exists():
+                        enrolled_cohorts = user.enrolled_cohorts.all()
+                    enrolled_cohort_ids = list(enrolled_cohorts.values_list("id", flat=True))
+                    if not enrolled_cohort_ids:
+                        raise NotFound("Quiz not found.")
+                    is_unlocked = CohortQuizSchedule.objects.filter(
+                        cohort_id__in=enrolled_cohort_ids,
+                        quiz=quiz,
+                        is_published=True,
+                        is_locked=False,
+                    ).exists()
+                    if not is_unlocked:
+                        raise NotFound("Quiz not found.")
             return quiz
         except Quiz.DoesNotExist:
             raise NotFound("Quiz not found.")
@@ -224,18 +273,54 @@ class QuizDetailUpdateDeleteView(SoftDeleteMixin, SuccessResponseMixin, generics
         return self.success_response(data=QuizDetailSerializer(self.get_object()).data)
 
     def patch(self, request, *args, **kwargs):
-        if not _is_admin(request.user):
-            raise PermissionDenied("Only administrators can update quizzes.")
         quiz = self.get_object()
-        serializer = QuizWriteSerializer(
-            quiz, data=request.data, partial=True, context={"request": request}
-        )
-        serializer.is_valid(raise_exception=True)
-        quiz = serializer.save()
-        return self.success_response(
-            data=QuizDetailSerializer(quiz).data,
-            message="Quiz updated successfully.",
-        )
+        user = request.user
+
+        if _is_admin(user):
+            serializer = QuizWriteSerializer(
+                quiz, data=request.data, partial=True, context={"request": request}
+            )
+            serializer.is_valid(raise_exception=True)
+            quiz = serializer.save()
+            return self.success_response(
+                data=QuizDetailSerializer(quiz).data,
+                message="Quiz updated successfully.",
+            )
+
+        if user.is_authenticated and user.role == UserRole.TUTOR:
+            # Check what fields this tutor is permitted to update for this quiz
+            allowed_fields = set()
+            if quiz.allow_tutor_edit_instructions:
+                allowed_fields.update({"description", "description_kinyarwanda", "rubric", "rubric_kinyarwanda"})
+            if quiz.allow_tutor_scheduling:
+                allowed_fields.update({"open_date", "deadline", "closing_date", "allow_late_submission"})
+            if quiz.allow_tutor_edit_duration:
+                allowed_fields.update({"time_limit_minutes"})
+            if quiz.allow_tutor_edit_attempts:
+                allowed_fields.update({"max_attempts"})
+
+            attempted_fields = set(request.data.keys())
+            disallowed_fields = attempted_fields - allowed_fields
+            if disallowed_fields:
+                raise PermissionDenied(
+                    f"Permission denied: you are not granted access to modify {', '.join(sorted(disallowed_fields))}."
+                )
+
+            if not allowed_fields:
+                raise PermissionDenied("The administrator has not granted tutor update permissions for this quiz.")
+
+            filtered_data = {k: v for k, v in request.data.items() if k in allowed_fields}
+            serializer = QuizWriteSerializer(
+                quiz, data=filtered_data, partial=True, context={"request": request}
+            )
+            serializer.is_valid(raise_exception=True)
+            quiz = serializer.save()
+            return self.success_response(
+                data=QuizDetailSerializer(quiz).data,
+                message="Quiz rules updated successfully.",
+            )
+
+        raise PermissionDenied("Only tutors and administrators can update quizzes.")
 
     def perform_destroy(self, instance):
         if not _is_admin(self.request.user):

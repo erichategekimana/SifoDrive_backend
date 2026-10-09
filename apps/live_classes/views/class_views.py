@@ -2,6 +2,7 @@ from datetime import date
 import logging
 
 from django.db.models import Q
+from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
@@ -14,7 +15,8 @@ from apps.core.permissions import (
     IsTrainingAdminOrAbove,
     IsTutorOrTrainingAdmin,
 )
-from apps.live_classes.models import LiveClass
+from apps.live_classes.models import LiveClass, LiveClassSchedule
+from apps.live_classes.models.choices import LiveClassStatus
 from apps.live_classes.serializers import (
     LiveClassCreateUpdateSerializer,
     LiveClassDetailSerializer,
@@ -22,6 +24,8 @@ from apps.live_classes.serializers import (
     LiveClassListSerializer,
     LiveClassRecurringScheduleSerializer,
     LiveClassRescheduleSerializer,
+    LiveClassScheduleSerializer,
+    LiveClassScheduleUpdateSerializer,
 )
 from apps.live_classes.services import LiveClassService
 
@@ -111,14 +115,105 @@ class LiveClassRecurringScheduleView(SuccessResponseMixin, APIView):
     def post(self, request, *args, **kwargs):
         serializer = LiveClassRecurringScheduleSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        created_classes = LiveClassService.schedule_recurring_classes(
+        master_schedule = LiveClassService.schedule_recurring_classes(
             **serializer.validated_data,
             created_by=request.user,
         )
         return self.success_response(
-            data=LiveClassListSerializer(created_classes, many=True).data,
-            message=f"Successfully scheduled {len(created_classes)} recurring live classes.",
+            data=LiveClassScheduleSerializer(master_schedule).data,
+            message=f"Successfully scheduled class '{master_schedule.title}' with {master_schedule.total_sessions_count} sessions.",
         )
+
+
+class LiveClassScheduleListCreateView(SuccessResponseMixin, generics.ListCreateAPIView):
+    """
+    GET: List master live class schedules (1 row per schedule offering).
+    POST: Create a new class schedule (single or recurring).
+    """
+
+    permission_classes = [IsTrainingAdminOrAbove]
+    serializer_class = LiveClassScheduleSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = LiveClassSchedule.objects.select_related("cohort", "tutor", "created_by").filter(is_active=True)
+        cohort_id = self.request.query_params.get("cohort")
+        if cohort_id:
+            qs = qs.filter(cohort_id=cohort_id)
+        return qs.order_by("-created_at")
+
+    def create(self, request, *args, **kwargs):
+        schedule_mode = request.data.get("schedule_mode")
+        if schedule_mode == "SINGLE" or ("scheduled_date" in request.data and not request.data.get("days_of_week") and not request.data.get("period_months")):
+            serializer = LiveClassCreateUpdateSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            data = serializer.validated_data
+            live_class = LiveClassService.schedule_class(
+                **data,
+                created_by=request.user,
+            )
+            master_schedule = live_class.schedule
+            return self.success_response(
+                data=LiveClassScheduleSerializer(master_schedule).data if master_schedule else LiveClassDetailSerializer(live_class).data,
+                message=f"Successfully scheduled class '{live_class.title}'.",
+                status_code=201,
+            )
+
+        serializer = LiveClassRecurringScheduleSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        master_schedule = LiveClassService.schedule_recurring_classes(
+            **serializer.validated_data,
+            created_by=request.user,
+        )
+        return self.success_response(
+            data=LiveClassScheduleSerializer(master_schedule).data,
+            message=f"Successfully created schedule '{master_schedule.title}'.",
+            status_code=201,
+        )
+
+
+class LiveClassScheduleDetailView(SuccessResponseMixin, APIView):
+    """
+    GET: View master schedule details and all associated session dates.
+    PATCH/PUT: Update schedule attributes and synchronize future scheduled sessions.
+    DELETE: Soft-delete schedule and cancel all associated session instances.
+    """
+
+    permission_classes = [IsTrainingAdminOrAbove]
+
+    def get(self, request, pk, *args, **kwargs):
+        try:
+            schedule = LiveClassSchedule.objects.select_related("cohort", "tutor", "created_by").get(id=pk, is_active=True)
+        except LiveClassSchedule.DoesNotExist:
+            return self.error_response("Schedule not found.", status_code=404)
+
+        schedule_data = LiveClassScheduleSerializer(schedule).data
+        sessions = schedule.sessions.all().order_by("scheduled_date", "start_time")
+        schedule_data["sessions"] = LiveClassListSerializer(sessions, many=True).data
+        return self.success_response(data=schedule_data)
+
+    def patch(self, request, pk, *args, **kwargs):
+        serializer = LiveClassScheduleUpdateSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        try:
+            updated_schedule = LiveClassService.update_schedule(
+                schedule_id=str(pk),
+                **serializer.validated_data,
+                updated_by=request.user,
+            )
+            return self.success_response(
+                data=LiveClassScheduleSerializer(updated_schedule).data,
+                message="Schedule updated successfully.",
+            )
+        except LiveClassSchedule.DoesNotExist:
+            return self.error_response("Schedule not found.", status_code=404)
+
+    def delete(self, request, pk, *args, **kwargs):
+        try:
+            LiveClassService.delete_schedule(schedule_id=str(pk), deleted_by=request.user)
+            return self.success_response(message="Schedule and all associated class sessions deleted.")
+        except LiveClassSchedule.DoesNotExist:
+            return self.error_response("Schedule not found.", status_code=404)
 
 
 class LiveClassDetailView(SuccessResponseMixin, generics.RetrieveUpdateDestroyAPIView):
@@ -133,8 +228,10 @@ class LiveClassDetailView(SuccessResponseMixin, generics.RetrieveUpdateDestroyAP
     ).prefetch_related("resources")
 
     def get_permissions(self):
-        if self.request.method in ["PATCH", "PUT", "DELETE"]:
+        if self.request.method == "DELETE":
             return [IsTrainingAdminOrAbove()]
+        if self.request.method in ["PATCH", "PUT"]:
+            return [IsTutorOrTrainingAdmin()]
         return [IsStudentOrStaff()]
 
     def get_serializer_class(self):
@@ -142,8 +239,24 @@ class LiveClassDetailView(SuccessResponseMixin, generics.RetrieveUpdateDestroyAP
             return LiveClassCreateUpdateSerializer
         return LiveClassDetailSerializer
 
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", True)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return self.success_response(
+            data=LiveClassDetailSerializer(instance).data,
+            message="Live class updated successfully.",
+        )
+
     def perform_destroy(self, instance):
-        LiveClassService.cancel_class(instance, reason="Cancelled via admin dashboard")
+        instance.delete(deleted_by=self.request.user)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return self.success_response(message="Live class deleted successfully.")
 
 
 class LiveClassRescheduleView(SuccessResponseMixin, APIView):
@@ -247,3 +360,44 @@ class LiveClassCancelView(SuccessResponseMixin, APIView):
             data=LiveClassDetailSerializer(cancelled_class).data,
             message="Live class cancelled.",
         )
+
+
+class LiveClassRecordingView(SuccessResponseMixin, APIView):
+    """
+    POST: Tutor or Training Admin posts or updates the cloud recording URL for a live class session.
+    Students can subsequently watch the recording.
+    """
+
+    permission_classes = [IsTutorOrTrainingAdmin]
+
+    def post(self, request, pk):
+        try:
+            live_class = LiveClass.objects.get(pk=pk)
+        except LiveClass.DoesNotExist:
+            return Response({"detail": "Live class not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        user = request.user
+        if user.role == UserRole.TUTOR and live_class.tutor and live_class.tutor != user:
+            if not live_class.cohort or not live_class.cohort.assigned_tutors.filter(id=user.id).exists():
+                raise PermissionDenied("You are not the designated tutor for this live class.")
+
+        recording_url = request.data.get("recording_url", "").strip()
+        if not recording_url:
+            return Response({"detail": "Recording URL is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        live_class.recording_url = recording_url
+        if "notes" in request.data and request.data["notes"]:
+            live_class.notes = request.data["notes"].strip()
+
+        if live_class.status != LiveClassStatus.COMPLETED and (live_class.is_past or recording_url):
+            live_class.status = LiveClassStatus.COMPLETED
+            if not live_class.actual_ended_at:
+                live_class.actual_ended_at = timezone.now()
+
+        live_class.save(update_fields=["recording_url", "notes", "status", "actual_ended_at", "updated_at"])
+
+        return self.success_response(
+            data=LiveClassDetailSerializer(live_class).data,
+            message="Class recording posted successfully.",
+        )
+

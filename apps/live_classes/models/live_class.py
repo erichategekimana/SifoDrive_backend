@@ -26,6 +26,15 @@ class LiveClass(BaseModel):
         verbose_name=_("Assigned Cohort"),
         help_text=_("Specific student cohort, or blank for platform-wide open class"),
     )
+    schedule = models.ForeignKey(
+        "live_classes.LiveClassSchedule",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="sessions",
+        verbose_name=_("Master Schedule"),
+        help_text=_("The master recurring schedule this session belongs to"),
+    )
     tutor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

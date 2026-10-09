@@ -33,9 +33,9 @@ from apps.lms.services import CohortMaterialService
 
 def _get_cohort_and_validate_access(cohort_id, user):
     try:
-        cohort = Cohort.objects.get(id=cohort_id)
+        cohort = Cohort.objects.get(id=cohort_id, is_active=True)
     except Cohort.DoesNotExist:
-        raise NotFound("Cohort not found.")
+        raise NotFound("Active cohort not found.")
 
     if user.role in (UserRole.SYSTEM_ADMIN, UserRole.TRAINING_ADMIN) or user.is_superuser:
         return cohort
@@ -51,7 +51,7 @@ def _get_cohort_and_validate_access(cohort_id, user):
 class TutorAssignedCohortsListView(SuccessResponseMixin, APIView):
     """
     GET /api/v1/lms/tutor/cohorts/
-    Returns all cohorts assigned to the requesting tutor (or all cohorts for admins).
+    Returns active cohorts assigned to the requesting tutor (or all active cohorts for admins).
     """
 
     permission_classes = [IsStaffOrAdmin]
@@ -146,16 +146,25 @@ class TutorCohortModulesView(SuccessResponseMixin, APIView):
         results = []
         for m in modules:
             rel = releases.get(m.id)
+            # By default, modules are locked for cohorts until the tutor explicitly unlocks/releases them
+            is_published = rel.is_published if rel else False
+            is_locked = rel.is_locked if rel else True
             results.append({
+                "id": str(m.id),
                 "module_id": str(m.id),
                 "title": m.title,
                 "sort_order": m.sort_order,
+                "order": m.sort_order,
                 "is_foundational": m.is_foundational,
                 "is_student_only": m.is_student_only,
                 "is_course_published": m.is_published,
-                "is_published_to_cohort": rel.is_published if rel else True,
-                "is_locked_for_cohort": rel.is_locked if rel else False,
+                "is_default_published": m.is_published,
+                "is_published": is_published,
+                "is_locked": is_locked,
+                "is_published_to_cohort": is_published,
+                "is_locked_for_cohort": is_locked,
                 "unlock_date": rel.unlock_date if rel else None,
+                "lessons_count": m.lessons.filter(is_deleted=False).count(),
             })
 
         return self.success_response(data=results)
@@ -169,6 +178,9 @@ class TutorCohortModuleReleaseUpdateView(SuccessResponseMixin, APIView):
 
     permission_classes = [IsStaffOrAdmin]
 
+    def post(self, request, cohort_id, module_id):
+        return self.patch(request, cohort_id, module_id)
+
     def patch(self, request, cohort_id, module_id):
         cohort = _get_cohort_and_validate_access(cohort_id, request.user)
         try:
@@ -179,11 +191,18 @@ class TutorCohortModuleReleaseUpdateView(SuccessResponseMixin, APIView):
         serializer = UpdateCohortModuleReleaseSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        is_locked = serializer.validated_data.get("is_locked", False)
+        # If is_published was explicitly provided, use it; otherwise deduce from is_locked
+        if "is_published" in serializer.validated_data:
+            is_published = serializer.validated_data["is_published"]
+        else:
+            is_published = not is_locked
+
         rel = CohortMaterialService.update_cohort_module_release(
             cohort=cohort,
             module=module,
-            is_published=serializer.validated_data["is_published"],
-            is_locked=serializer.validated_data.get("is_locked", False),
+            is_published=is_published,
+            is_locked=is_locked,
             unlock_date=serializer.validated_data.get("unlock_date"),
             user=request.user,
         )
@@ -219,9 +238,9 @@ class TutorCohortQuizzesView(SuccessResponseMixin, APIView):
             raise NotFound("Course not found.")
 
         # Tutors should never see draft quizzes created by training/system admins.
-        # Those that are set to 'OPEN' are the ones tutors can control visibility for their cohorts.
+        # Published quizzes (OPEN, SCHEDULED, CLOSED) can have cohort visibility and schedules controlled by tutors.
         course_quizzes = course.quizzes.filter(is_deleted=False, is_published=True).order_by("-created_at")
-        quizzes = [q for q in course_quizzes if q.status == "OPEN"]
+        quizzes = [q for q in course_quizzes if q.status != "DRAFT"]
         schedules = {
             s.quiz_id: s
             for s in CohortQuizSchedule.objects.filter(cohort=cohort, quiz__in=quizzes)
@@ -231,22 +250,37 @@ class TutorCohortQuizzesView(SuccessResponseMixin, APIView):
         for q in quizzes:
             sch = schedules.get(q.id)
             effective_deadline = (sch.extended_deadline or sch.deadline) if sch else q.deadline
+            # By default, a quiz is locked / unpublished for cohorts until the tutor unlocks/publishes it
+            is_locked = sch.is_locked if sch else True
+            is_published = sch.is_published if sch else False
+            status_for_cohort = sch.status_for_cohort if sch else "LOCKED"
+
             results.append({
+                "id": str(q.id),
                 "quiz_id": str(q.id),
                 "title": q.title,
                 "title_kinyarwanda": q.title_kinyarwanda,
                 "module_id": str(q.module_id) if q.module_id else None,
                 "total_score": q.total_score,
                 "passing_score": q.passing_score,
+                "time_limit_minutes": q.time_limit_minutes,
+                "max_attempts": q.max_attempts,
+                "rubric": q.rubric,
+                "rubric_kinyarwanda": q.rubric_kinyarwanda,
                 "allow_tutor_scheduling": q.allow_tutor_scheduling,
-                "is_published_to_cohort": sch.is_published if sch else q.is_published,
-                "is_locked_for_cohort": sch.is_locked if sch else False,
+                "allow_tutor_edit_instructions": q.allow_tutor_edit_instructions,
+                "allow_tutor_edit_duration": q.allow_tutor_edit_duration,
+                "allow_tutor_edit_attempts": q.allow_tutor_edit_attempts,
+                "is_published": is_published,
+                "is_locked": is_locked,
+                "is_published_to_cohort": is_published,
+                "is_locked_for_cohort": is_locked,
                 "open_date": sch.open_date if sch else q.open_date,
                 "deadline": sch.deadline if sch else q.deadline,
                 "extended_deadline": sch.extended_deadline if sch else None,
                 "effective_deadline": effective_deadline,
                 "extension_reason": sch.extension_reason if sch else "",
-                "status_for_cohort": sch.status_for_cohort if sch else q.status,
+                "status_for_cohort": status_for_cohort,
             })
 
         return self.success_response(data=results)
@@ -256,7 +290,7 @@ class TutorCohortQuizScheduleView(SuccessResponseMixin, APIView):
     """
     POST /api/v1/lms/tutor/cohorts/<uuid:cohort_id>/quizzes/<uuid:quiz_id>/schedule/
     Schedules, publishes, or locks a quiz for this specific cohort.
-    Only quizzes set to 'OPEN' are allowed to have cohort visibility managed by tutors.
+    Published quizzes (OPEN, SCHEDULED, CLOSED) are allowed to have cohort visibility managed by tutors.
     """
 
     permission_classes = [IsStaffOrAdmin]
@@ -265,8 +299,8 @@ class TutorCohortQuizScheduleView(SuccessResponseMixin, APIView):
         cohort = _get_cohort_and_validate_access(cohort_id, request.user)
         try:
             quiz = Quiz.objects.get(id=quiz_id, is_deleted=False, is_published=True)
-            if quiz.status != "OPEN" and not _is_admin(request.user):
-                raise PermissionDenied("Only Open quizzes can have cohort visibility and scheduling controlled by tutors.")
+            if quiz.status == "DRAFT" and not _is_admin(request.user):
+                raise PermissionDenied("Only published quizzes can have cohort visibility and scheduling controlled by tutors.")
         except Quiz.DoesNotExist:
             raise NotFound("Quiz not found.")
 
@@ -365,10 +399,16 @@ class TutorApproachingDeadlinesView(SuccessResponseMixin, APIView):
             })
 
         # 2. Quiz schedules with deadlines
+        quiz_filter = {
+            "cohort_id__in": cohort_ids,
+            "is_published": True,
+            "deadline__isnull": False,
+        }
+        if request.user.is_authenticated and request.user.role in (UserRole.STUDENT, UserRole.GUEST):
+            quiz_filter["is_locked"] = False
+
         quiz_schedules = (
-            CohortQuizSchedule.objects.filter(
-                cohort_id__in=cohort_ids, is_published=True, deadline__isnull=False
-            )
+            CohortQuizSchedule.objects.filter(**quiz_filter)
             .select_related("cohort", "quiz", "quiz__course")
             .order_by("deadline")
         )

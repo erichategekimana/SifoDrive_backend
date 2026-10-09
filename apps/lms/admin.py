@@ -16,11 +16,14 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from .models import (
+    Announcement,
     CohortActivity,
     CohortModuleRelease,
     CohortQuizSchedule,
     Course,
     Curriculum,
+    DiscussionTopic,
+    DiscussionReply,
     HelpTicket,
     Lesson,
     LessonBookmark,
@@ -590,5 +593,27 @@ class StudentActivitySubmissionAdmin(admin.ModelAdmin):
     list_filter = ["status", "activity__cohort"]
     search_fields = ["activity__title", "student__phone_number", "student__first_name", "student__last_name"]
     readonly_fields = ["submitted_at"]
+
+
+@admin.register(Announcement)
+class AnnouncementAdmin(admin.ModelAdmin):
+    list_display = ["title", "author", "course", "target_type", "cohort", "is_pinned", "created_at"]
+    list_filter = ["target_type", "is_pinned", "category", "course"]
+    search_fields = ["title", "content", "author__first_name", "author__last_name", "author__phone_number"]
+    filter_horizontal = ["cohorts"]
+
+
+@admin.register(DiscussionTopic)
+class DiscussionTopicAdmin(admin.ModelAdmin):
+    list_display = ["title", "author", "course", "is_locked", "is_pinned", "created_at"]
+    list_filter = ["is_locked", "is_pinned", "course"]
+    search_fields = ["title", "content", "author__first_name", "author__last_name"]
+
+
+@admin.register(DiscussionReply)
+class DiscussionReplyAdmin(admin.ModelAdmin):
+    list_display = ["author", "topic", "parent", "created_at"]
+    search_fields = ["content", "author__first_name", "author__last_name", "topic__title"]
+
 
 

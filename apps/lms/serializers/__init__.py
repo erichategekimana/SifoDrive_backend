@@ -56,6 +56,8 @@ from .support_serializers import (
     HelpTicketSerializer,
     HelpTicketCreateSerializer,
     HelpTicketResolveSerializer,
+    AnnouncementSerializer,
+    AnnouncementCreateSerializer,
 )
 
 __all__ = [
@@ -99,5 +101,8 @@ __all__ = [
     "HelpTicketSerializer",
     "HelpTicketCreateSerializer",
     "HelpTicketResolveSerializer",
+    # Announcements
+    "AnnouncementSerializer",
+    "AnnouncementCreateSerializer",
 ]
 

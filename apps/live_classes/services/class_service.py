@@ -12,6 +12,7 @@ from apps.live_classes.models import (
     ClassResource,
     Cohort,
     LiveClass,
+    LiveClassSchedule,
     LiveClassStatus,
 )
 
@@ -44,7 +45,7 @@ class LiveClassService:
     ) -> LiveClass:
         """
         Schedule a new live class session.
-        Validates schedule boundaries and dispatches scheduled notifications.
+        Creates a master schedule record and a single session instance.
         """
         if start_time >= end_time:
             raise ValidationError("Start time must be strictly before end time.")
@@ -52,11 +53,31 @@ class LiveClassService:
         if tutor and tutor.role not in [UserRole.TUTOR, UserRole.TRAINING_ADMIN, UserRole.SYSTEM_ADMIN]:
             raise ValidationError("Assigned user must have Tutor or Admin role.")
 
+        master_schedule = LiveClassSchedule.objects.create(
+            title=title.strip(),
+            topic=topic.strip(),
+            cohort=cohort,
+            tutor=tutor,
+            schedule_mode="SINGLE",
+            days_of_week=[scheduled_date.weekday()],
+            start_time=start_time,
+            end_time=end_time,
+            start_date=scheduled_date,
+            end_date=scheduled_date,
+            period_months=1,
+            period_unit="months",
+            google_meet_url=google_meet_url.strip(),
+            is_published=is_published,
+            notes=notes.strip(),
+            created_by=created_by,
+        )
+
         live_class = LiveClass.objects.create(
             title=title.strip(),
             topic=topic.strip(),
             cohort=cohort,
             tutor=tutor,
+            schedule=master_schedule,
             module=module,
             lesson=lesson,
             scheduled_date=scheduled_date,
@@ -70,13 +91,14 @@ class LiveClassService:
         )
 
         logger.info(
-            "Live class scheduled: '%s' on %s (%s - %s), tutor=%s, cohort=%s",
+            "Live class scheduled: '%s' on %s (%s - %s), tutor=%s, cohort=%s, schedule=%s",
             live_class.title,
             scheduled_date,
             start_time,
             end_time,
             tutor.phone_number if tutor else "Unassigned",
             cohort.code if cohort else "Open",
+            master_schedule.id,
         )
 
         if is_published:
@@ -90,10 +112,13 @@ class LiveClassService:
         cls,
         title: str,
         start_date: date,
-        day_of_week: int,
-        start_time: time,
-        end_time: time,
+        day_of_week: Optional[int] = None,
+        days_of_week: Optional[List[int]] = None,
+        start_time: time = None,
+        end_time: time = None,
         period_months: int = 3,
+        period_unit: str = "months",
+        end_date: Optional[date] = None,
         google_meet_url: str = "",
         cohort: Optional[Cohort] = None,
         tutor: Optional[User] = None,
@@ -101,63 +126,175 @@ class LiveClassService:
         is_published: bool = True,
         notes: str = "",
         created_by: Optional[User] = None,
-    ) -> List[LiveClass]:
+    ) -> LiveClassSchedule:
         """
-        Schedule recurring live classes for a specific day of the week over a given period in months.
-        E.g. each Tuesday 2pm for 3 months.
+        Schedule recurring live classes for specific days of the week over a given period or until end_date.
+        Creates a master LiveClassSchedule record and linked LiveClass session occurrences.
         """
         import calendar
         from datetime import timedelta
 
-        if start_time >= end_time:
+        if start_time and end_time and start_time >= end_time:
             raise ValidationError("Start time must be strictly before end time.")
 
-        # Calculate approximate end date based on period_months
-        year = start_date.year
-        month = start_date.month + period_months
-        while month > 12:
-            year += 1
-            month -= 12
-        max_day = calendar.monthrange(year, month)[1]
-        day = min(start_date.day, max_day)
-        period_end_date = date(year, month, day)
+        # Determine target weekdays (0=Mon ... 6=Sun)
+        target_days = list(days_of_week or [])
+        if day_of_week is not None and day_of_week not in target_days:
+            target_days.append(day_of_week)
+        if not target_days:
+            target_days = [start_date.weekday()]
 
-        # Advance to first occurrence of day_of_week
-        cur = start_date
-        days_ahead = (day_of_week - cur.weekday()) % 7
-        cur = cur + timedelta(days=days_ahead)
+        # Determine period end date
+        if end_date:
+            period_end_date = end_date
+        elif period_unit == "years":
+            year = start_date.year + period_months
+            max_day = calendar.monthrange(year, start_date.month)[1]
+            day = min(start_date.day, max_day)
+            period_end_date = date(year, start_date.month, day)
+        else:
+            year = start_date.year
+            month = start_date.month + period_months
+            while month > 12:
+                year += 1
+                month -= 12
+            max_day = calendar.monthrange(year, month)[1]
+            day = min(start_date.day, max_day)
+            period_end_date = date(year, month, day)
 
         if not google_meet_url:
-            meet_slug = f"sifo-{title.lower()[:8].strip().replace(' ', '-')}-{calendar.day_abbr[day_of_week].lower()}"
+            meet_slug = f"sifo-{title.lower()[:8].strip().replace(' ', '-')}-live"
             google_meet_url = f"https://meet.google.com/{meet_slug}"
 
+        # 1. Create the single master LiveClassSchedule record
+        master_schedule = LiveClassSchedule.objects.create(
+            title=title.strip(),
+            topic=topic.strip(),
+            cohort=cohort,
+            tutor=tutor,
+            schedule_mode="RECURRING",
+            days_of_week=target_days,
+            start_time=start_time,
+            end_time=end_time,
+            start_date=start_date,
+            end_date=period_end_date,
+            period_months=period_months,
+            period_unit=period_unit,
+            google_meet_url=google_meet_url.strip(),
+            is_published=is_published,
+            notes=notes.strip(),
+            created_by=created_by,
+        )
+
+        # 2. Generate child session instances linked to the master schedule
         created_sessions = []
+        cur = start_date
         while cur <= period_end_date:
-            session = LiveClass.objects.create(
-                title=title.strip(),
-                topic=topic.strip(),
-                cohort=cohort,
-                tutor=tutor,
-                scheduled_date=cur,
-                start_time=start_time,
-                end_time=end_time,
-                google_meet_url=google_meet_url.strip(),
-                status=LiveClassStatus.SCHEDULED,
-                is_published=is_published,
-                notes=notes.strip(),
-                created_by=created_by,
-            )
-            created_sessions.append(session)
-            cur += timedelta(days=7)
+            if cur.weekday() in target_days:
+                session = LiveClass.objects.create(
+                    title=title.strip(),
+                    topic=topic.strip(),
+                    cohort=cohort,
+                    tutor=tutor,
+                    schedule=master_schedule,
+                    scheduled_date=cur,
+                    start_time=start_time,
+                    end_time=end_time,
+                    google_meet_url=google_meet_url.strip(),
+                    status=LiveClassStatus.SCHEDULED,
+                    is_published=is_published,
+                    notes=notes.strip(),
+                    created_by=created_by,
+                )
+                created_sessions.append(session)
+            cur += timedelta(days=1)
 
         logger.info(
-            "Scheduled %d recurring classes for '%s' (Day %d, %d months)",
+            "Created Master Schedule %s with %d child sessions for '%s' (Days %s, until %s)",
+            master_schedule.id,
             len(created_sessions),
             title,
-            day_of_week,
-            period_months,
+            target_days,
+            period_end_date,
         )
-        return created_sessions
+        return master_schedule
+
+    @classmethod
+    @transaction.atomic
+    def delete_schedule(cls, schedule_id: str, deleted_by: Optional[User] = None) -> bool:
+        """
+        Delete a master schedule and soft-delete/cancel all its child live class sessions.
+        """
+        schedule = LiveClassSchedule.objects.get(id=schedule_id)
+        for session in schedule.sessions.all():
+            session.delete(deleted_by=deleted_by)
+        schedule.delete(deleted_by=deleted_by)
+        logger.info("Deleted master schedule %s and associated sessions", schedule_id)
+        return True
+
+    @classmethod
+    @transaction.atomic
+    def update_schedule(
+        cls,
+        schedule_id: str,
+        title: Optional[str] = None,
+        topic: Optional[str] = None,
+        cohort: Optional[Cohort] = None,
+        tutor: Optional[User] = None,
+        google_meet_url: Optional[str] = None,
+        start_time: Optional[time] = None,
+        end_time: Optional[time] = None,
+        is_published: Optional[bool] = None,
+        notes: Optional[str] = None,
+        updated_by: Optional[User] = None,
+    ) -> LiveClassSchedule:
+        """
+        Update master schedule attributes and synchronize future scheduled session instances.
+        """
+        schedule = LiveClassSchedule.objects.get(id=schedule_id)
+        if title is not None:
+            schedule.title = title.strip()
+        if topic is not None:
+            schedule.topic = topic.strip()
+        if cohort is not None:
+            schedule.cohort = cohort
+        if tutor is not None:
+            schedule.tutor = tutor
+        if google_meet_url is not None:
+            schedule.google_meet_url = google_meet_url.strip()
+        if start_time is not None:
+            schedule.start_time = start_time
+        if end_time is not None:
+            schedule.end_time = end_time
+        if is_published is not None:
+            schedule.is_published = is_published
+        if notes is not None:
+            schedule.notes = notes.strip()
+        schedule.save()
+
+        # Synchronize future sessions
+        future_sessions = schedule.sessions.filter(status=LiveClassStatus.SCHEDULED)
+        for s in future_sessions:
+            if title is not None:
+                s.title = schedule.title
+            if topic is not None:
+                s.topic = schedule.topic
+            if cohort is not None:
+                s.cohort = schedule.cohort
+            if tutor is not None:
+                s.tutor = schedule.tutor
+            if google_meet_url is not None:
+                s.google_meet_url = schedule.google_meet_url
+            if start_time is not None:
+                s.start_time = schedule.start_time
+            if end_time is not None:
+                s.end_time = schedule.end_time
+            if is_published is not None:
+                s.is_published = schedule.is_published
+            s.save()
+
+        logger.info("Updated master schedule %s and synced %d future sessions", schedule_id, future_sessions.count())
+        return schedule
 
     @classmethod
     @transaction.atomic

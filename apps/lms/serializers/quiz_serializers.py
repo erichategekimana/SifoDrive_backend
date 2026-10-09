@@ -151,6 +151,34 @@ class QuizListSerializer(serializers.ModelSerializer):
     status = serializers.CharField(read_only=True)
     calculated_total_points = serializers.IntegerField(read_only=True)
 
+    is_locked = serializers.SerializerMethodField()
+
+    def get_is_locked(self, obj):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if user and user.is_authenticated:
+            if user.role == UserRole.TUTOR:
+                tutor_cohorts = user.assigned_cohorts.filter(is_active=True)
+                cohort_param = request.query_params.get("cohort") if request else None
+                if cohort_param:
+                    tutor_cohorts = tutor_cohorts.filter(id=cohort_param)
+                if tutor_cohorts.exists():
+                    sch = obj.cohort_schedules.filter(cohort__in=tutor_cohorts).first()
+                    if sch:
+                        return sch.is_locked or (not sch.is_published)
+                    # By default, quiz is locked for tutor's cohort until tutor unlocks/publishes it
+                    return True
+                return True
+            elif user.role in (UserRole.STUDENT, UserRole.GUEST):
+                enrolled_cohorts = user.enrolled_cohorts.all()
+                if not enrolled_cohorts.exists():
+                    return True
+                sch = obj.cohort_schedules.filter(cohort__in=enrolled_cohorts).first()
+                if sch:
+                    return sch.is_locked or (not sch.is_published)
+                return True
+        return False
+
     def get_created_by_name(self, obj):
         if obj.created_by:
             name = f"{obj.created_by.first_name} {obj.created_by.last_name}".strip()
@@ -192,10 +220,13 @@ class QuizListSerializer(serializers.ModelSerializer):
             "open_date", "deadline", "closing_date", "allow_late_submission", "is_final_exam",
             "time_limit_minutes", "total_score",
             "calculated_total_points", "passing_score", "max_attempts",
-            "shuffle_questions", "is_published", "status", "question_count",
+            "shuffle_questions", "is_published", "is_locked", "status", "question_count",
+            "rubric", "rubric_kinyarwanda",
+            "allow_tutor_scheduling", "allow_tutor_edit_instructions",
+            "allow_tutor_edit_duration", "allow_tutor_edit_attempts",
             "created_by", "created_by_name", "created_by_detail", "created_at", "updated_at",
         ]
-        read_only_fields = ["id", "status", "question_count", "calculated_total_points", "created_at", "updated_at"]
+        read_only_fields = ["id", "status", "question_count", "calculated_total_points", "is_locked", "created_at", "updated_at"]
 
 
 class QuizDetailSerializer(QuizListSerializer):
@@ -203,7 +234,7 @@ class QuizDetailSerializer(QuizListSerializer):
 
     class Meta(QuizListSerializer.Meta):
         fields = QuizListSerializer.Meta.fields + [
-            "rubric", "rubric_kinyarwanda", "items",
+            "items",
         ]
 
 
@@ -218,7 +249,10 @@ class QuizWriteSerializer(serializers.ModelSerializer):
             "open_date", "deadline", "closing_date", "allow_late_submission", "is_final_exam",
             "time_limit_minutes", "total_score", "passing_score",
             "rubric", "rubric_kinyarwanda",
-            "max_attempts", "shuffle_questions", "is_published", "items",
+            "max_attempts", "shuffle_questions", "is_published",
+            "allow_tutor_scheduling", "allow_tutor_edit_instructions",
+            "allow_tutor_edit_duration", "allow_tutor_edit_attempts",
+            "items",
         ]
         read_only_fields = ["id"]
 

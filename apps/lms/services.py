@@ -82,7 +82,23 @@ class ContentGateService:
         if lesson.is_student_only:
             return user.role == UserRole.STUDENT
 
-        # Regular lesson: any authenticated user
+        # Regular lesson: check cohort module unlock for students
+        if user.role == UserRole.STUDENT:
+            from .models import CohortModuleRelease
+            cohort_ids = list(user.enrolled_cohorts.filter(is_active=True).values_list("id", flat=True))
+            if not cohort_ids:
+                cohort_ids = list(user.enrolled_cohorts.all().values_list("id", flat=True))
+            if not cohort_ids:
+                return False
+            is_unlocked = CohortModuleRelease.objects.filter(
+                cohort_id__in=cohort_ids,
+                module=lesson.module,
+                is_published=True,
+                is_locked=False,
+            ).exists()
+            if not is_unlocked:
+                return False
+
         return True
 
     @classmethod
@@ -177,6 +193,22 @@ class ContentGateService:
             return course.modules.none()
 
         qs = qs.filter(is_published=True)
+
+        # For students: strictly only show modules released and unlocked by tutor for their cohort
+        if user and user.is_authenticated and user.role == UserRole.STUDENT:
+            from .models import CohortModuleRelease
+            cohort_ids = list(user.enrolled_cohorts.filter(is_active=True).values_list("id", flat=True))
+            if not cohort_ids:
+                cohort_ids = list(user.enrolled_cohorts.all().values_list("id", flat=True))
+            if not cohort_ids:
+                return course.modules.none()
+            unlocked_module_ids = CohortModuleRelease.objects.filter(
+                cohort_id__in=cohort_ids,
+                module__course=course,
+                is_published=True,
+                is_locked=False,
+            ).values_list("module_id", flat=True)
+            return qs.filter(id__in=unlocked_module_ids)
 
         # Guests and anonymous users cannot see student-only modules
         if not (user and user.is_authenticated) or user.role == UserRole.GUEST:
@@ -714,28 +746,44 @@ class CohortMaterialService:
         from apps.accounts.constants import UserRole
         from .models import CohortQuizSchedule
 
+        # If tutor is attempting to set custom schedule dates on a restricted quiz
         if not quiz.allow_tutor_scheduling and user and user.role == UserRole.TUTOR:
-            raise PermissionDenied(
-                "Training Admin has restricted scheduling for this quiz to a global schedule."
-            )
+            if any(x is not None for x in (open_date, deadline, closing_date)):
+                raise PermissionDenied(
+                    "Training Admin has restricted scheduling for this quiz to a global schedule."
+                )
 
         # Final exam rule
         if quiz.is_final_exam and allow_late_submission:
             raise PermissionDenied("Final exams cannot have late submissions.")
 
-        schedule, _ = CohortQuizSchedule.objects.update_or_create(
+        schedule, created = CohortQuizSchedule.objects.get_or_create(
             cohort=cohort,
             quiz=quiz,
             defaults={
-                "open_date": open_date,
-                "deadline": deadline,
-                "closing_date": closing_date,
+                "open_date": open_date or quiz.open_date,
+                "deadline": deadline or quiz.deadline,
+                "closing_date": closing_date or quiz.closing_date,
                 "allow_late_submission": allow_late_submission if not quiz.is_final_exam else False,
                 "is_published": is_published,
                 "is_locked": is_locked,
                 "scheduled_by": user,
             },
         )
+        if not created:
+            if open_date is not None:
+                schedule.open_date = open_date
+            if deadline is not None:
+                schedule.deadline = deadline
+            if closing_date is not None:
+                schedule.closing_date = closing_date
+            if allow_late_submission is not None:
+                schedule.allow_late_submission = allow_late_submission if not quiz.is_final_exam else False
+            schedule.is_published = is_published
+            schedule.is_locked = is_locked
+            schedule.scheduled_by = user
+            schedule.save()
+
         return schedule
 
     @classmethod

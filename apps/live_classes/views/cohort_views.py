@@ -46,8 +46,10 @@ class CohortListCreateView(SuccessResponseMixin, generics.ListCreateAPIView):
     def get_queryset(self):
         CohortService.evaluate_all_cohorts_status()
         user = self.request.user
-        if user.role in [UserRole.SYSTEM_ADMIN, UserRole.TRAINING_ADMIN, UserRole.TUTOR, UserRole.BOARD_REVIEWER]:
-            return Cohort.objects.all().prefetch_related("assigned_tutors", "students")
+        if user.role in [UserRole.SYSTEM_ADMIN, UserRole.TRAINING_ADMIN, UserRole.BOARD_REVIEWER] or user.is_superuser:
+            return Cohort.objects.filter(is_active=True).prefetch_related("assigned_tutors", "students")
+        if user.role == UserRole.TUTOR:
+            return user.assigned_cohorts.filter(is_active=True).prefetch_related("assigned_tutors", "students")
         return user.enrolled_cohorts.filter(is_active=True)
 
     def perform_create(self, serializer):

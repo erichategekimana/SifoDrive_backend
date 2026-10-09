@@ -83,6 +83,24 @@ from apps.lms.models.activity import (  # noqa: F401
     StudentActivitySubmission,
 )
 
+# Announcements layer
+from apps.lms.models.announcement import (  # noqa: F401
+    AnnouncementTargetType,
+    Announcement,
+)
+
+# Discussions layer
+from apps.lms.models.discussion import (  # noqa: F401
+    DiscussionTopic,
+    DiscussionReply,
+)
+
+# Groups & Group Chat layer
+from apps.lms.models.group import (  # noqa: F401
+    CourseGroup,
+    CourseGroupMessage,
+)
+
 __all__ = [
     # Choices
     "CorrectOption",
@@ -122,5 +140,14 @@ __all__ = [
     "ActivitySubmissionType",
     "CohortActivity",
     "StudentActivitySubmission",
+    # Announcements
+    "AnnouncementTargetType",
+    "Announcement",
+    # Discussions
+    "DiscussionTopic",
+    "DiscussionReply",
+    # Course Groups
+    "CourseGroup",
+    "CourseGroupMessage",
 ]
 

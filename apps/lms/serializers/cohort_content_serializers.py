@@ -29,7 +29,7 @@ class CohortModuleReleaseSerializer(serializers.ModelSerializer):
 
 
 class UpdateCohortModuleReleaseSerializer(serializers.Serializer):
-    is_published = serializers.BooleanField(required=True)
+    is_published = serializers.BooleanField(required=False, default=True)
     is_locked = serializers.BooleanField(required=False, default=False)
     unlock_date = serializers.DateTimeField(required=False, allow_null=True)
 

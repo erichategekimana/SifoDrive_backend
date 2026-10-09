@@ -9,6 +9,7 @@ from apps.live_classes.models.choices import (
     LiveClassStatus,
 )
 from apps.live_classes.models.cohort import Cohort
+from apps.live_classes.models.schedule import LiveClassSchedule
 from apps.live_classes.models.live_class import LiveClass
 from apps.live_classes.models.attendance import ClassAttendance
 from apps.live_classes.models.resource import ClassResource
@@ -17,6 +18,7 @@ __all__ = [
     "LiveClassStatus",
     "AttendanceStatus",
     "Cohort",
+    "LiveClassSchedule",
     "LiveClass",
     "ClassAttendance",
     "ClassResource",

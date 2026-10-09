@@ -84,6 +84,7 @@ from apps.lms.views.support_views import (  # noqa: F401
     HelpTicketListCreateView,
     HelpTicketDetailView,
     SupportAnnouncementsView,
+    SupportAnnouncementDetailView,
 )
 
 from apps.lms.views.tutor_assignment_views import (  # noqa: F401
@@ -110,6 +111,24 @@ from apps.lms.views.activity_views import (  # noqa: F401
     TutorCohortActivityGradeSubmissionView,
     StudentCohortActivitiesListView,
     StudentCohortActivitySubmitView,
+)
+
+from apps.lms.views.discussion_views import (  # noqa: F401
+    CourseDiscussionListCreateView,
+    DiscussionDetailView,
+    DiscussionLockToggleView,
+    DiscussionTopicLikeToggleView,
+    DiscussionReplyCreateView,
+    DiscussionReplyLikeToggleView,
+    DiscussionReplyDeleteView,
+)
+
+from apps.lms.views.group_views import (  # noqa: F401
+    CourseRosterView,
+    CourseGroupListCreateView,
+    CourseGroupDetailView,
+    CourseGroupJoinToggleView,
+    CourseGroupMessageCreateView,
 )
 
 

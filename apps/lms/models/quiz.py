@@ -240,6 +240,27 @@ class Quiz(BaseModel):
             "If False, follows global training admin schedule."
         ),
     )
+    allow_tutor_edit_instructions = models.BooleanField(
+        _("Allow Tutor Edit Instructions"),
+        default=True,
+        help_text=_(
+            "If True, tutors can customize instructions, rubric guidelines, and advice for their assigned cohort."
+        ),
+    )
+    allow_tutor_edit_duration = models.BooleanField(
+        _("Allow Tutor Edit Duration"),
+        default=True,
+        help_text=_(
+            "If True, tutors can adjust the time limit (duration) for their assigned cohort."
+        ),
+    )
+    allow_tutor_edit_attempts = models.BooleanField(
+        _("Allow Tutor Edit Attempts"),
+        default=True,
+        help_text=_(
+            "If True, tutors can configure the maximum attempts allowed for their assigned cohort."
+        ),
+    )
     created_by = models.ForeignKey(
         "accounts.User",
         on_delete=models.SET_NULL,

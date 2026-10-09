@@ -107,6 +107,22 @@ class ModuleDetailView(SuccessResponseMixin, generics.RetrieveAPIView):
             raise NotFound("Module not found.")
         if not module.is_published and not _is_content_staff(self.request.user):
             raise NotFound("Module not found.")
+        user = self.request.user
+        if user.is_authenticated and user.role == UserRole.STUDENT:
+            from apps.lms.models import CohortModuleRelease
+            cohort_ids = list(user.enrolled_cohorts.filter(is_active=True).values_list("id", flat=True))
+            if not cohort_ids:
+                cohort_ids = list(user.enrolled_cohorts.all().values_list("id", flat=True))
+            if not cohort_ids:
+                raise NotFound("Module not found.")
+            is_unlocked = CohortModuleRelease.objects.filter(
+                cohort_id__in=cohort_ids,
+                module=module,
+                is_published=True,
+                is_locked=False,
+            ).exists()
+            if not is_unlocked:
+                raise NotFound("Module not found.")
         return module
 
     def retrieve(self, request, *args, **kwargs):

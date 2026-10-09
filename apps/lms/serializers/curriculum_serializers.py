@@ -18,15 +18,37 @@ class ModuleListSerializer(serializers.ModelSerializer):
     """Compact module info for course detail page."""
 
     lesson_count = serializers.IntegerField(read_only=True)
+    is_locked = serializers.SerializerMethodField()
 
     class Meta:
         model = Module
         fields = [
             "id", "title", "description", "sort_order",
-            "is_foundational", "is_student_only", "is_outside_resource", "is_published",
+            "is_foundational", "is_student_only", "is_outside_resource", "is_published", "is_locked",
             "lesson_count",
         ]
-        read_only_fields = ["id", "lesson_count"]
+        read_only_fields = ["id", "lesson_count", "is_locked"]
+
+    def get_is_locked(self, obj):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if not user or not user.is_authenticated:
+            return False
+        from apps.accounts.constants import UserRole
+        if user.role == UserRole.STUDENT:
+            from apps.lms.models import CohortModuleRelease
+            cohort_ids = list(user.enrolled_cohorts.filter(is_active=True).values_list("id", flat=True))
+            if not cohort_ids:
+                cohort_ids = list(user.enrolled_cohorts.all().values_list("id", flat=True))
+            if not cohort_ids:
+                return True
+            return not CohortModuleRelease.objects.filter(
+                cohort_id__in=cohort_ids,
+                module=obj,
+                is_published=True,
+                is_locked=False,
+            ).exists()
+        return False
 
 
 class ModuleDetailSerializer(serializers.ModelSerializer):
@@ -34,16 +56,38 @@ class ModuleDetailSerializer(serializers.ModelSerializer):
 
     lessons = serializers.SerializerMethodField()
     lesson_count = serializers.IntegerField(read_only=True)
+    is_locked = serializers.SerializerMethodField()
 
     class Meta:
         model = Module
         fields = [
             "id", "course", "title", "description", "sort_order",
-            "is_foundational", "is_student_only", "is_outside_resource", "is_published", "published_at",
+            "is_foundational", "is_student_only", "is_outside_resource", "is_published", "is_locked", "published_at",
             "lesson_count", "lessons",
             "created_at", "updated_at",
         ]
-        read_only_fields = ["id", "published_at", "lesson_count", "created_at", "updated_at"]
+        read_only_fields = ["id", "published_at", "lesson_count", "is_locked", "created_at", "updated_at"]
+
+    def get_is_locked(self, obj):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if not user or not user.is_authenticated:
+            return False
+        from apps.accounts.constants import UserRole
+        if user.role == UserRole.STUDENT:
+            from apps.lms.models import CohortModuleRelease
+            cohort_ids = list(user.enrolled_cohorts.filter(is_active=True).values_list("id", flat=True))
+            if not cohort_ids:
+                cohort_ids = list(user.enrolled_cohorts.all().values_list("id", flat=True))
+            if not cohort_ids:
+                return True
+            return not CohortModuleRelease.objects.filter(
+                cohort_id__in=cohort_ids,
+                module=obj,
+                is_published=True,
+                is_locked=False,
+            ).exists()
+        return False
 
     def get_lessons(self, obj):
         request = self.context.get("request")

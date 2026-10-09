@@ -120,6 +120,7 @@ from .views import (
     RoadSignListView,
     RoadSignUpdateView,
     SupportAnnouncementsView,
+    SupportAnnouncementDetailView,
     AdminTutorsListView,
     AdminTutorCurriculaAssignmentView,
     AdminTutorCoursesAssignmentView,
@@ -137,6 +138,18 @@ from .views import (
     TutorCohortActivityGradeSubmissionView,
     StudentCohortActivitiesListView,
     StudentCohortActivitySubmitView,
+    CourseDiscussionListCreateView,
+    DiscussionDetailView,
+    DiscussionLockToggleView,
+    DiscussionTopicLikeToggleView,
+    DiscussionReplyCreateView,
+    DiscussionReplyLikeToggleView,
+    DiscussionReplyDeleteView,
+    CourseRosterView,
+    CourseGroupListCreateView,
+    CourseGroupDetailView,
+    CourseGroupJoinToggleView,
+    CourseGroupMessageCreateView,
 )
 
 app_name = "lms"
@@ -223,6 +236,7 @@ urlpatterns = [
     path("support/tickets/",                HelpTicketListCreateView.as_view(),  name="support-tickets"),
     path("support/tickets/<uuid:id>/",      HelpTicketDetailView.as_view(),      name="support-ticket-detail"),
     path("support/announcements/",          SupportAnnouncementsView.as_view(),  name="support-announcements"),
+    path("support/announcements/<uuid:pk>/", SupportAnnouncementDetailView.as_view(), name="support-announcement-detail"),
 
     # ── Training Admin: Tutor Assignments ─────────────────────────────────────
     path("admin/tutors/",                   AdminTutorsListView.as_view(),                name="admin-tutors-list"),
@@ -247,5 +261,21 @@ urlpatterns = [
     path("cohorts/<uuid:cohort_id>/activities/",                       StudentCohortActivitiesListView.as_view(),            name="student-cohort-activities"),
     path("cohorts/activities/",                                        StudentCohortActivitiesListView.as_view(),            name="student-cohort-activities-all"),
     path("cohorts/<uuid:cohort_id>/activities/<uuid:activity_id>/submit/", StudentCohortActivitySubmitView.as_view(),       name="student-cohort-activity-submit"),
+
+    # ── Course Discussions & Moderation ──────────────────────────────────────
+    path("courses/<uuid:course_id>/discussions/",                       CourseDiscussionListCreateView.as_view(),    name="course-discussions-list-create"),
+    path("discussions/<uuid:topic_id>/",                                DiscussionDetailView.as_view(),              name="discussion-detail"),
+    path("discussions/<uuid:topic_id>/toggle-lock/",                    DiscussionLockToggleView.as_view(),          name="discussion-toggle-lock"),
+    path("discussions/<uuid:topic_id>/toggle-like/",                    DiscussionTopicLikeToggleView.as_view(),      name="discussion-toggle-like"),
+    path("discussions/<uuid:topic_id>/replies/",                        DiscussionReplyCreateView.as_view(),         name="discussion-reply-create"),
+    path("discussions/<uuid:topic_id>/replies/<uuid:reply_id>/toggle-like/", DiscussionReplyLikeToggleView.as_view(), name="discussion-reply-toggle-like"),
+    path("discussions/<uuid:topic_id>/replies/<uuid:reply_id>/",        DiscussionReplyDeleteView.as_view(),         name="discussion-reply-delete"),
+
+    # ── Course People: Roster & Collaborative Groups & Group Chat ───────────
+    path("courses/<uuid:course_id>/roster/",                           CourseRosterView.as_view(),                  name="course-roster"),
+    path("courses/<uuid:course_id>/groups/",                           CourseGroupListCreateView.as_view(),         name="course-groups-list-create"),
+    path("groups/<uuid:group_id>/",                                     CourseGroupDetailView.as_view(),             name="course-group-detail"),
+    path("groups/<uuid:group_id>/toggle-join/",                         CourseGroupJoinToggleView.as_view(),         name="course-group-toggle-join"),
+    path("groups/<uuid:group_id>/messages/",                            CourseGroupMessageCreateView.as_view(),      name="course-group-message-create"),
 ]
 

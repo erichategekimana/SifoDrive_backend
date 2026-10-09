@@ -21,8 +21,11 @@ from .views import (
     LiveClassDetailView,
     LiveClassEndView,
     LiveClassListCreateView,
+    LiveClassRecordingView,
     LiveClassRecurringScheduleView,
     LiveClassRescheduleView,
+    LiveClassScheduleDetailView,
+    LiveClassScheduleListCreateView,
     LiveClassStartView,
     MyAttendanceSummaryView,
     StudentAttendanceDetailView,
@@ -38,6 +41,10 @@ urlpatterns = [
     path("cohorts/<uuid:pk>/assign-students/", CohortAssignStudentsView.as_view(), name="cohort-assign-students"),
     path("cohorts/<uuid:pk>/assign-tutors/", CohortAssignTutorsView.as_view(), name="cohort-assign-tutors"),
 
+    # Master Schedules
+    path("schedules/", LiveClassScheduleListCreateView.as_view(), name="schedule-list-create"),
+    path("schedules/<uuid:pk>/", LiveClassScheduleDetailView.as_view(), name="schedule-detail"),
+
     # Live Classes
     path("", LiveClassListCreateView.as_view(), name="class-list-create-root"),
     path("classes/", LiveClassListCreateView.as_view(), name="class-list-create"),
@@ -46,6 +53,7 @@ urlpatterns = [
     path("classes/<uuid:pk>/reschedule/", LiveClassRescheduleView.as_view(), name="class-reschedule"),
     path("classes/<uuid:pk>/start/", LiveClassStartView.as_view(), name="class-start"),
     path("classes/<uuid:pk>/end/", LiveClassEndView.as_view(), name="class-end"),
+    path("classes/<uuid:pk>/recording/", LiveClassRecordingView.as_view(), name="class-recording"),
     path("classes/<uuid:pk>/cancel/", LiveClassCancelView.as_view(), name="class-cancel"),
 
     # Class Resources

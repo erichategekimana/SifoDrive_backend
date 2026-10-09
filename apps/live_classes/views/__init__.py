@@ -15,8 +15,11 @@ from apps.live_classes.views.class_views import (
     LiveClassDetailView,
     LiveClassEndView,
     LiveClassListCreateView,
+    LiveClassRecordingView,
     LiveClassRecurringScheduleView,
     LiveClassRescheduleView,
+    LiveClassScheduleDetailView,
+    LiveClassScheduleListCreateView,
     LiveClassStartView,
 )
 from apps.live_classes.views.cohort_views import (
@@ -38,8 +41,11 @@ __all__ = [
     "CohortAssignStudentsView",
     "CohortAssignTutorsView",
     "LiveClassListCreateView",
+    "LiveClassScheduleListCreateView",
+    "LiveClassScheduleDetailView",
     "LiveClassRecurringScheduleView",
     "LiveClassDetailView",
+    "LiveClassRecordingView",
     "LiveClassRescheduleView",
     "LiveClassStartView",
     "LiveClassEndView",

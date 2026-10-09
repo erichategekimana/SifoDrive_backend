@@ -5,8 +5,16 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.mixins import SuccessResponseMixin
-from apps.lms.models import HelpTicket, TicketRecipientRole, TicketStatus
+from apps.lms.models import (
+    Announcement,
+    AnnouncementTargetType,
+    HelpTicket,
+    TicketRecipientRole,
+    TicketStatus,
+)
 from apps.lms.serializers import (
+    AnnouncementCreateSerializer,
+    AnnouncementSerializer,
     HelpTicketCreateSerializer,
     HelpTicketResolveSerializer,
     HelpTicketSerializer,
@@ -85,65 +93,123 @@ class HelpTicketDetailView(SuccessResponseMixin, generics.RetrieveUpdateAPIView)
 
 class SupportAnnouncementsView(SuccessResponseMixin, APIView):
     """
-    GET /api/v1/lms/support/announcements/
-    Returns official tech support and training admin bulletins for students & tutors.
+    GET  /api/v1/lms/support/announcements/
+    Returns real, persisted announcements filtered by course and cohort visibility.
+    - Students see announcements targeted to their enrolled cohorts, or broadcast to all cohorts of their tutors, or course-wide.
+    - Tutors see announcements they authored, announcements targeting their assigned cohorts, or course-wide.
+    
+    POST /api/v1/lms/support/announcements/
+    Allows tutors and training administrators to post an announcement targeted to:
+    - One specific cohort (SINGLE_COHORT)
+    - All cohorts assigned to the tutor (ALL_ASSIGNED_COHORTS)
     """
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
-        from apps.lms.models import Course
-        course = Course.objects.filter(is_deleted=False).first()
-        course_id = str(course.id) if course else None
-        course_title = course.title if course else "Road Regulations & Traffic Signs"
+        user = request.user
+        course_id = request.query_params.get("course_id")
+        cohort_id = request.query_params.get("cohort_id")
 
-        bulletins = [
-            {
-                "id": "ann-001",
-                "title": "Gahunda y'Amasomo y'Imbonankubone (Live Google Meet Sessions)",
-                "author": "Training Admin & Instructors",
-                "date": "2026-09-28",
-                "category": "TRAINING",
-                "content": (
-                    "Amasomo yose y'amatsinda azajya aba kuwa mbere no kuwa gatatu guhera 18:00 kugeza 20:00. "
-                    "Ihuza rya Google Meet riri mu gice cy'Amatsinda (Groups tab)."
-                ),
-                "is_pinned": True,
-                "course_id": course_id,
-                "course_name": course_title,
-                "course_title": course_title,
-                "target_url": f"/courses/{course_id}" if course_id else "/courses",
-            },
-            {
-                "id": "ann-002",
-                "title": "Kwandikisha Ikizamini cya Polisi kuri Irembo",
-                "author": "Tech Support Team",
-                "date": "2026-09-25",
-                "category": "SYSTEM",
-                "content": (
-                    "Mbere yo gukoresha Irembo Concierge, banza wemeze ko wagejeje 85% mu bizamini by'igerageza "
-                    "hano kuri Sifo Drive kugira ngo wemererwe."
-                ),
-                "is_pinned": False,
-                "course_id": course_id,
-                "course_name": course_title,
-                "course_title": course_title,
-                "target_url": f"/courses/{course_id}" if course_id else "/courses",
-            },
-            {
-                "id": "ann-003",
-                "title": "Ivugururwa rya Sisitemu (Maintenance Notice)",
-                "author": "Platform Operations",
-                "date": "2026-09-20",
-                "category": "TECH",
-                "content": (
-                    "Urubuga ruzaba rurimo gukorerwa isuku kuwa gatandatu saa 02:00 kugeza 04:00 zo mu gitondo. "
-                    "Nta kibazo kigaragara ku mwirondoro cyangwa amanota yanyu."
-                ),
-                "is_pinned": False,
-                "course_id": course_id,
-                "course_name": course_title,
-                "course_title": course_title,
-                "target_url": f"/courses/{course_id}" if course_id else "/courses",
-            },
-        ]
-        return self.success_response(data=bulletins)
+        qs = Announcement.objects.filter(is_deleted=False).select_related("author", "course", "cohort").prefetch_related("cohorts")
+
+        if course_id:
+            qs = qs.filter(course_id=course_id)
+
+        is_admin = (
+            user.is_staff
+            or getattr(user, "is_training_admin", False)
+            or getattr(user, "is_system_admin", False)
+            or getattr(user, "role", "") in ["SYSTEM_ADMIN", "TRAINING_ADMIN"]
+        )
+
+        if not is_admin:
+            is_tutor = getattr(user, "is_tutor", False) or getattr(user, "role", "") == "TUTOR"
+            if is_tutor:
+                assigned_cohort_ids = list(user.assigned_cohorts.filter(is_deleted=False).values_list("id", flat=True))
+                cond = (
+                    Q(author=user)
+                    | Q(cohort_id__in=assigned_cohort_ids)
+                    | Q(cohorts__in=assigned_cohort_ids)
+                    | Q(target_type=AnnouncementTargetType.COURSE_WIDE)
+                )
+                qs = qs.filter(cond)
+
+                if cohort_id:
+                    qs = qs.filter(
+                        Q(cohort_id=cohort_id)
+                        | (Q(target_type=AnnouncementTargetType.ALL_ASSIGNED_COHORTS) & Q(cohorts__id=cohort_id))
+                        | (Q(target_type=AnnouncementTargetType.ALL_ASSIGNED_COHORTS) & Q(author__assigned_cohorts__id=cohort_id))
+                    )
+            else:
+                # Student or Guest
+                enrolled_cohort_ids = list(user.enrolled_cohorts.filter(is_deleted=False).values_list("id", flat=True))
+                cond = (
+                    Q(cohort_id__in=enrolled_cohort_ids)
+                    | Q(cohorts__in=enrolled_cohort_ids)
+                    | (Q(target_type=AnnouncementTargetType.ALL_ASSIGNED_COHORTS) & Q(author__assigned_cohorts__in=enrolled_cohort_ids))
+                    | Q(target_type=AnnouncementTargetType.COURSE_WIDE)
+                )
+                qs = qs.filter(cond)
+        else:
+            if cohort_id:
+                qs = qs.filter(Q(cohort_id=cohort_id) | Q(cohorts__id=cohort_id))
+
+        qs = qs.distinct().order_by("-is_pinned", "-created_at")
+        serializer = AnnouncementSerializer(qs, many=True)
+        return self.success_response(data=serializer.data)
+
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        can_post = (
+            user.is_staff
+            or getattr(user, "is_training_admin", False)
+            or getattr(user, "is_system_admin", False)
+            or getattr(user, "is_tutor", False)
+            or getattr(user, "role", "") in ["TUTOR", "TRAINING_ADMIN", "SYSTEM_ADMIN"]
+        )
+        if not can_post:
+            return Response(
+                {"success": False, "message": "Only tutors and administrators may post announcements."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = AnnouncementCreateSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        announcement = serializer.save()
+        return self.success_response(
+            data=AnnouncementSerializer(announcement).data,
+            message="Announcement posted successfully.",
+            status_code=status.HTTP_201_CREATED,
+        )
+
+
+class SupportAnnouncementDetailView(SuccessResponseMixin, APIView):
+    """
+    DELETE /api/v1/lms/support/announcements/<uuid:pk>/
+    Delete an announcement. Only author or administrator can delete.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, pk, *args, **kwargs):
+        announcement = Announcement.objects.filter(id=pk, is_deleted=False).first()
+        if not announcement:
+            return Response(
+                {"success": False, "message": "Announcement not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        is_admin = (
+            request.user.is_staff
+            or getattr(request.user, "is_training_admin", False)
+            or getattr(request.user, "is_system_admin", False)
+            or getattr(request.user, "role", "") in ["SYSTEM_ADMIN", "TRAINING_ADMIN"]
+        )
+        if announcement.author_id != request.user.id and not is_admin:
+            return Response(
+                {"success": False, "message": "You can only delete your own announcements."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        announcement.is_deleted = True
+        announcement.save(update_fields=["is_deleted", "updated_at"])
+        return self.success_response(message="Announcement deleted successfully.")
