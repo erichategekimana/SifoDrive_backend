@@ -8,12 +8,16 @@ class ClassAttendanceSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source="student.get_full_name", read_only=True)
     student_phone = serializers.CharField(source="student.phone_number", read_only=True)
     marked_by_name = serializers.CharField(source="marked_by.get_full_name", read_only=True)
+    class_title = serializers.CharField(source="live_class.title", read_only=True)
+    scheduled_at = serializers.DateTimeField(source="live_class.scheduled_at", read_only=True)
 
     class Meta:
         model = ClassAttendance
         fields = [
             "id",
             "live_class",
+            "class_title",
+            "scheduled_at",
             "student",
             "student_name",
             "student_phone",
@@ -28,6 +32,8 @@ class ClassAttendanceSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id",
+            "class_title",
+            "scheduled_at",
             "student_name",
             "student_phone",
             "marked_by",
