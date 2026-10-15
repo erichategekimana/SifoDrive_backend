@@ -64,3 +64,9 @@ class CorrectOption(models.TextChoices):
     B = "B", "B"
     C = "C", "C"
     D = "D", "D"
+
+
+class QuizType(models.TextChoices):
+    LIVE_TIMED      = "LIVE_TIMED",      _("Live Timed Quiz (Proctored)")
+    WORK_SUBMISSION = "WORK_SUBMISSION", _("Work Submission (Self-Paced)")
+

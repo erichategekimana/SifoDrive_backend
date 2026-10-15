@@ -561,3 +561,30 @@ class AuditService:
             request=request,
             context={"description": change_description[:500]},
         )
+
+    # =========================================================================
+    # LMS / QUIZ EVENTS
+    # =========================================================================
+
+    @classmethod
+    def log_quiz_grade_overridden(
+        cls, tutor, student, submission, old_score, new_score, request=None
+    ) -> None:
+        """Fired when an auto-graded quiz grade is manually edited or overridden by tutor or staff."""
+        tutor_name = tutor.get_full_name() if hasattr(tutor, "get_full_name") else getattr(tutor, "phone_number", "Staff")
+        _safe_log(
+            action=AuditAction.QUIZ_GRADE_OVERRIDDEN,
+            performed_by=tutor,
+            target_user=student,
+            request=request,
+            context={
+                "quiz_id": str(submission.quiz_id),
+                "quiz_title": getattr(submission.quiz, "title", "Quiz"),
+                "submission_id": str(submission.id),
+                "old_score": old_score,
+                "new_score": new_score,
+                "tutor_name": tutor_name,
+                "tutor_id": str(tutor.id),
+                "attempt_number": getattr(submission, "attempt_number", 1),
+            },
+        )

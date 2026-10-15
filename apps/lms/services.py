@@ -824,12 +824,18 @@ class CohortActivityService:
         description_kinyarwanda="",
         activity_type="ASSIGNMENT",
         submission_type="TEXT_RESPONSE",
+        allowed_submission_methods=None,
+        resource_type="TEXT",
+        attachment=None,
+        attachment_url="",
         total_points=100,
         passing_points=70,
+        open_date=None,
         due_date=None,
         allow_late_submission=False,
         is_published=True,
         is_locked=False,
+        release_grades_immediately=False,
         tutor=None,
     ):
         from .models import CohortActivity
@@ -843,19 +849,33 @@ class CohortActivityService:
             description_kinyarwanda=description_kinyarwanda,
             activity_type=activity_type,
             submission_type=submission_type,
+            allowed_submission_methods=allowed_submission_methods or ["text"],
+            resource_type=resource_type,
+            attachment=attachment,
+            attachment_url=attachment_url,
             total_points=total_points,
             passing_points=passing_points,
+            open_date=open_date,
             due_date=due_date,
             allow_late_submission=allow_late_submission,
             is_published=is_published,
             is_locked=is_locked,
+            release_grades_immediately=release_grades_immediately,
             created_by=tutor,
         )
         return activity
 
     @classmethod
     @transaction.atomic
-    def submit_activity(cls, activity, student, submission_text="", attachment=None):
+    def submit_activity(
+        cls,
+        activity,
+        student,
+        submission_text="",
+        attachment=None,
+        submission_link="",
+        submission_method="TEXT",
+    ):
         from rest_framework.exceptions import ValidationError
         from django.utils import timezone
         from .models import StudentActivitySubmission
@@ -867,11 +887,19 @@ class CohortActivityService:
             raise ValidationError("This activity is currently locked or not available.")
 
         now = timezone.now()
+        if activity.open_date and activity.open_date > now:
+            formatted_date = activity.open_date.strftime("%Y-%m-%d %H:%M")
+            raise ValidationError(
+                f"This activity is scheduled to open on {formatted_date}. You cannot submit work before its open date."
+            )
+
         if activity.due_date and activity.due_date < now and not activity.allow_late_submission:
             raise ValidationError("Submissions are closed. The due date has passed.")
 
         defaults = {
             "submission_text": submission_text,
+            "submission_link": submission_link,
+            "submission_method": submission_method,
             "status": StudentActivitySubmission.SubmissionStatus.SUBMITTED,
             "submitted_at": now,
         }
@@ -898,4 +926,29 @@ class CohortActivityService:
         submission.graded_at = timezone.now()
         submission.save(update_fields=["score", "tutor_feedback", "status", "graded_by", "graded_at", "updated_at"])
         return submission
+
+    @classmethod
+    @transaction.atomic
+    def publish_grades(cls, activity):
+        from django.utils import timezone
+        from rest_framework.exceptions import ValidationError
+
+        now = timezone.now()
+        if activity.open_date and activity.open_date > now:
+            formatted_date = activity.open_date.strftime("%Y-%m-%d %H:%M")
+            raise ValidationError(
+                f"Cannot publish activity grades before the activity open date ({formatted_date}). "
+                "The activity has not opened yet."
+            )
+
+        if activity.due_date and activity.due_date > now:
+            formatted_date = activity.due_date.strftime("%Y-%m-%d %H:%M")
+            raise ValidationError(
+                f"Cannot publish activity grades before the activity deadline ({formatted_date}). "
+                "Students may still be submitting their work."
+            )
+
+        activity.grades_published = True
+        activity.save(update_fields=["grades_published", "updated_at"])
+        return activity
 

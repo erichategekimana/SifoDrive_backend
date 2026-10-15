@@ -131,12 +131,30 @@ class LiveClassScheduleListCreateView(SuccessResponseMixin, generics.ListCreateA
     POST: Create a new class schedule (single or recurring).
     """
 
-    permission_classes = [IsTrainingAdminOrAbove]
     serializer_class = LiveClassScheduleSerializer
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsTrainingAdminOrAbove()]
+        return [IsStudentOrStaff()]
 
     def get_queryset(self):
         user = self.request.user
         qs = LiveClassSchedule.objects.select_related("cohort", "tutor", "created_by").filter(is_active=True)
+
+        # Role filtering
+        if user.role == UserRole.STUDENT:
+            student_cohort_ids = list(user.enrolled_cohorts.filter(is_active=True).values_list("id", flat=True))
+            qs = qs.filter(
+                Q(cohort_id__in=student_cohort_ids) | Q(cohort__isnull=True),
+                is_published=True,
+            )
+        elif user.role == UserRole.TUTOR:
+            tutor_cohort_ids = list(user.assigned_cohorts.filter(is_active=True).values_list("id", flat=True))
+            qs = qs.filter(
+                Q(tutor=user) | Q(cohort_id__in=tutor_cohort_ids) | Q(cohort__isnull=True)
+            )
+
         cohort_id = self.request.query_params.get("cohort")
         if cohort_id:
             qs = qs.filter(cohort_id=cohort_id)
@@ -179,13 +197,24 @@ class LiveClassScheduleDetailView(SuccessResponseMixin, APIView):
     DELETE: Soft-delete schedule and cancel all associated session instances.
     """
 
-    permission_classes = [IsTrainingAdminOrAbove]
+    def get_permissions(self):
+        if self.request.method in ["PATCH", "PUT", "DELETE"]:
+            return [IsTrainingAdminOrAbove()]
+        return [IsStudentOrStaff()]
 
     def get(self, request, pk, *args, **kwargs):
         try:
             schedule = LiveClassSchedule.objects.select_related("cohort", "tutor", "created_by").get(id=pk, is_active=True)
         except LiveClassSchedule.DoesNotExist:
             return self.error_response("Schedule not found.", status_code=404)
+
+        user = request.user
+        if user.role == UserRole.STUDENT and schedule.cohort:
+            if not user.enrolled_cohorts.filter(id=schedule.cohort_id).exists():
+                raise PermissionDenied("You are not enrolled in the cohort for this schedule.")
+        elif user.role == UserRole.TUTOR and schedule.cohort and schedule.tutor != user:
+            if not user.assigned_cohorts.filter(id=schedule.cohort_id).exists():
+                raise PermissionDenied("You are not assigned to the cohort for this schedule.")
 
         schedule_data = LiveClassScheduleSerializer(schedule).data
         sessions = schedule.sessions.all().order_by("scheduled_date", "start_time")

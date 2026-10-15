@@ -4,7 +4,8 @@ apps/lms/views/group_views.py
 API views for Course Roster (Classmates & Instructors), Study Groups, and Group Chat.
 """
 
-from django.db.models import Q
+from django.db.models import Q, Max
+from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -70,7 +71,8 @@ class CourseGroupListCreateView(SuccessResponseMixin, APIView):
             CourseGroup.objects.filter(course=course, is_deleted=False)
             .select_related("created_by", "course")
             .prefetch_related("members")
-            .order_by("-created_at")
+            .annotate(latest_activity=Coalesce(Max("messages__created_at"), "created_at"))
+            .order_by("-latest_activity")
         )
 
         # Auto-seed standard groups if course has none yet
@@ -94,7 +96,13 @@ class CourseGroupListCreateView(SuccessResponseMixin, APIView):
                 content=f"Welcome everyone to the {course.title} study group! Feel free to ask questions and share study tips here.",
             )
 
-            groups = CourseGroup.objects.filter(course=course, is_deleted=False)
+            groups = (
+                CourseGroup.objects.filter(course=course, is_deleted=False)
+                .select_related("created_by", "course")
+                .prefetch_related("members")
+                .annotate(latest_activity=Coalesce(Max("messages__created_at"), "created_at"))
+                .order_by("-latest_activity")
+            )
 
         serializer = CourseGroupListSerializer(groups, many=True, context={"request": request})
         return self.success_response(data=serializer.data)
@@ -217,5 +225,116 @@ class CourseGroupMessageCreateView(SuccessResponseMixin, APIView):
         return self.success_response(
             data=output.data,
             message="Message sent successfully.",
+            status_code=status.HTTP_201_CREATED,
+        )
+
+
+class AllCourseGroupsListView(SuccessResponseMixin, APIView):
+    """
+    GET  /api/v1/lms/groups/
+         Returns all study groups across all courses accessible/enrolled to the student.
+         Query params:
+           - course_id: filter to a specific course
+           - my_groups: if 'true', returns only groups where the user is a member
+           - search: search query
+    POST /api/v1/lms/groups/
+         Create a new study group for any enrolled/accessible course.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        from apps.lms.services import ContentGateService
+
+        user = request.user
+        visible_courses = ContentGateService.get_visible_courses(user)
+
+        # Seed standard groups for visible courses if empty so students have spaces to collaborate
+        for course in visible_courses[:5]:
+            if not CourseGroup.objects.filter(course=course, is_deleted=False).exists():
+                default_tutor = User.objects.filter(role="TUTOR", is_active=True).first() or user
+                g1 = CourseGroup.objects.create(
+                    course=course,
+                    created_by=default_tutor,
+                    name=f"{course.title} - Main Study Circle",
+                    description=f"Official peer study circle and discussion group for {course.title}.",
+                    category="General",
+                )
+                g1.members.add(user)
+                if default_tutor != user:
+                    g1.members.add(default_tutor)
+                CourseGroupMessage.objects.create(
+                    group=g1,
+                    sender=default_tutor,
+                    content=f"Welcome everyone to the {course.title} study circle! Feel free to ask questions and share study tips here.",
+                )
+
+        groups = (
+            CourseGroup.objects.filter(course__in=visible_courses, is_deleted=False)
+            .select_related("created_by", "course")
+            .prefetch_related("members")
+            .annotate(latest_activity=Coalesce(Max("messages__created_at"), "created_at"))
+            .order_by("-latest_activity")
+        )
+
+        course_id = request.query_params.get("course_id")
+        if course_id:
+            groups = groups.filter(course_id=course_id)
+
+        my_groups = request.query_params.get("my_groups")
+        if my_groups in ["true", "1", "True"]:
+            groups = groups.filter(members=user)
+
+        search = request.query_params.get("search")
+        if search:
+            groups = groups.filter(
+                Q(name__icontains=search)
+                | Q(description__icontains=search)
+                | Q(category__icontains=search)
+                | Q(course__title__icontains=search)
+            )
+
+        serializer = CourseGroupListSerializer(groups.distinct(), many=True, context={"request": request})
+        return self.success_response(data=serializer.data)
+
+    def post(self, request, *args, **kwargs):
+        from apps.lms.services import ContentGateService
+
+        serializer = CourseGroupCreateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return self.validation_error(serializer.errors)
+
+        validated = serializer.validated_data
+        course_id = validated.get("course_id")
+        if not course_id:
+            visible_courses = ContentGateService.get_visible_courses(request.user)
+            course = visible_courses.first()
+            if not course:
+                return self.error_response(
+                    message="No enrolled course available to create a group.",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+        else:
+            course = get_object_or_404(Course, id=course_id, is_deleted=False)
+
+        group = CourseGroup.objects.create(
+            course=course,
+            created_by=request.user,
+            name=validated["name"].strip(),
+            description=validated.get("description", "").strip(),
+            category=validated.get("category", "General").strip() or "General",
+        )
+        group.members.add(request.user)
+
+        CourseGroupMessage.objects.create(
+            group=group,
+            sender=request.user,
+            content=f"Created the group '{group.name}'. Welcome all classmates!",
+        )
+
+        output = CourseGroupDetailSerializer(group, context={"request": request})
+        return self.success_response(
+            data=output.data,
+            message="Study group created successfully.",
             status_code=status.HTTP_201_CREATED,
         )

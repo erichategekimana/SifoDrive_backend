@@ -1,12 +1,22 @@
 from rest_framework import serializers
-from apps.lms.models import HelpTicket, TicketCategory, TicketPriority, TicketRecipientRole, TicketStatus
+from apps.lms.models import (
+    HelpTicket,
+    TicketCategory,
+    TicketFeedbackRating,
+    TicketFeedbackResolution,
+    TicketPriority,
+    TicketRecipientRole,
+    TicketStatus,
+)
 
 
 class HelpTicketSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source="user.full_name", read_only=True)
     user_phone = serializers.CharField(source="user.phone_number", read_only=True)
     user_role = serializers.CharField(source="user.role", read_only=True)
+    user_email = serializers.CharField(source="user.email", read_only=True)
     assigned_to_name = serializers.CharField(source="assigned_to.full_name", read_only=True, allow_null=True)
+    forwarded_by_name = serializers.CharField(source="forwarded_by.full_name", read_only=True, allow_null=True)
 
     class Meta:
         model = HelpTicket
@@ -16,6 +26,7 @@ class HelpTicketSerializer(serializers.ModelSerializer):
             "user_name",
             "user_phone",
             "user_role",
+            "user_email",
             "recipient_role",
             "category",
             "subject",
@@ -24,8 +35,16 @@ class HelpTicketSerializer(serializers.ModelSerializer):
             "status",
             "assigned_to",
             "assigned_to_name",
+            "forwarded_by",
+            "forwarded_by_name",
+            "forwarded_at",
+            "internal_notes",
             "response",
             "resolved_at",
+            "feedback_rating",
+            "feedback_resolution",
+            "feedback_notes",
+            "feedback_submitted_at",
             "created_at",
             "updated_at",
         ]
@@ -38,8 +57,16 @@ class HelpTicketSerializer(serializers.ModelSerializer):
             "status",
             "assigned_to",
             "assigned_to_name",
+            "forwarded_by",
+            "forwarded_by_name",
+            "forwarded_at",
+            "internal_notes",
             "response",
             "resolved_at",
+            "feedback_rating",
+            "feedback_resolution",
+            "feedback_notes",
+            "feedback_submitted_at",
             "created_at",
             "updated_at",
         ]
@@ -49,12 +76,14 @@ class HelpTicketCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = HelpTicket
         fields = [
+            "id",
             "recipient_role",
             "category",
             "subject",
             "message",
             "priority",
         ]
+        read_only_fields = ["id"]
 
 
 class HelpTicketResolveSerializer(serializers.Serializer):
@@ -63,6 +92,32 @@ class HelpTicketResolveSerializer(serializers.Serializer):
         choices=[TicketStatus.RESOLVED, TicketStatus.CLOSED],
         default=TicketStatus.RESOLVED,
     )
+
+
+class HelpTicketForwardSerializer(serializers.Serializer):
+    assigned_to = serializers.UUIDField(required=True)
+    internal_notes = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+class HelpTicketStatusUpdateSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=TicketStatus.choices, required=True)
+    response = serializers.CharField(required=False, allow_blank=True, default="")
+    internal_notes = serializers.CharField(required=False, allow_blank=True, default="")
+    assigned_to = serializers.UUIDField(required=False, allow_null=True)
+
+
+class HelpTicketFeedbackSerializer(serializers.Serializer):
+    rating = serializers.ChoiceField(choices=TicketFeedbackRating.choices, required=True)
+    resolution = serializers.ChoiceField(choices=TicketFeedbackResolution.choices, required=True)
+    notes = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+class SupportAssignableUserSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    full_name = serializers.CharField()
+    phone_number = serializers.CharField()
+    role = serializers.CharField()
+    email = serializers.CharField(allow_blank=True, default="")
 
 
 class AnnouncementSerializer(serializers.ModelSerializer):
@@ -130,7 +185,7 @@ class AnnouncementCreateSerializer(serializers.Serializer):
         from apps.lms.models import AnnouncementTargetType
         from apps.live_classes.models import Cohort
 
-        target_type = attrs.get("target_type", AnnouncementTargetType.ALL_ASSIGNED_COHORTS)
+        target_type = attrs.get("target_type", AnnouncementTargetType.PLATFORM_WIDE)
         cohort_id = attrs.get("cohort_id")
         request = self.context.get("request")
         user = request.user if request else None
@@ -150,6 +205,9 @@ class AnnouncementCreateSerializer(serializers.Serializer):
                 if not assigned.exists():
                     raise serializers.ValidationError({"target_type": "You do not have any assigned cohorts to broadcast to."})
                 attrs["cohorts_objs"] = list(assigned)
+        elif target_type in [AnnouncementTargetType.PLATFORM_WIDE, AnnouncementTargetType.COURSE_WIDE]:
+            # Platform-wide and Course-wide announcements broadcast to all users
+            pass
         return attrs
 
     def create(self, validated_data):

@@ -15,6 +15,7 @@ class AnnouncementTargetType(models.TextChoices):
     SINGLE_COHORT = "SINGLE_COHORT", _("Single Cohort")
     ALL_ASSIGNED_COHORTS = "ALL_ASSIGNED_COHORTS", _("All Assigned Cohorts")
     COURSE_WIDE = "COURSE_WIDE", _("Course-wide (All Students)")
+    PLATFORM_WIDE = "PLATFORM_WIDE", _("Platform-wide (All Users & Support Tab)")
 
 
 class Announcement(BaseModel):

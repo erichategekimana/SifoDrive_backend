@@ -8,7 +8,7 @@ from django.db import models, transaction
 from rest_framework import serializers
 
 from apps.accounts.constants import UserRole
-from apps.lms.models.quiz import Quiz, QuizQuestion, QuizQuestionItem
+from apps.lms.models.quiz import Quiz, QuizQuestion, QuizQuestionItem, QuizSubmission
 from .road_sign_serializers import RoadSignSerializer
 
 
@@ -123,6 +123,16 @@ class QuizQuestionItemSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id"]
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if user and user.is_authenticated and user.role in (UserRole.STUDENT, UserRole.GUEST):
+            data.pop("correct_option", None)
+            data.pop("explanation", None)
+            data.pop("explanation_kinyarwanda", None)
+        return data
+
 
 class QuizCreatorSerializer(serializers.Serializer):
     id = serializers.UUIDField(read_only=True)
@@ -216,11 +226,12 @@ class QuizListSerializer(serializers.ModelSerializer):
         model = Quiz
         fields = [
             "id", "course", "course_title", "module", "module_title",
+            "quiz_type", "enable_proctoring", "max_tab_switches_allowed",
             "title", "title_kinyarwanda", "description", "description_kinyarwanda",
             "open_date", "deadline", "closing_date", "allow_late_submission", "is_final_exam",
             "time_limit_minutes", "total_score",
             "calculated_total_points", "passing_score", "max_attempts",
-            "shuffle_questions", "is_published", "is_locked", "status", "question_count",
+            "shuffle_questions", "is_published", "release_grades_immediately", "is_locked", "status", "question_count",
             "rubric", "rubric_kinyarwanda",
             "allow_tutor_scheduling", "allow_tutor_edit_instructions",
             "allow_tutor_edit_duration", "allow_tutor_edit_attempts",
@@ -244,12 +255,13 @@ class QuizWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Quiz
         fields = [
-            "id", "course", "module", "title", "title_kinyarwanda",
+            "id", "course", "module", "quiz_type", "enable_proctoring", "max_tab_switches_allowed",
+            "title", "title_kinyarwanda",
             "description", "description_kinyarwanda",
             "open_date", "deadline", "closing_date", "allow_late_submission", "is_final_exam",
             "time_limit_minutes", "total_score", "passing_score",
             "rubric", "rubric_kinyarwanda",
-            "max_attempts", "shuffle_questions", "is_published",
+            "max_attempts", "shuffle_questions", "is_published", "release_grades_immediately",
             "allow_tutor_scheduling", "allow_tutor_edit_instructions",
             "allow_tutor_edit_duration", "allow_tutor_edit_attempts",
             "items",
@@ -333,3 +345,156 @@ class QuizWriteSerializer(serializers.ModelSerializer):
                 instance.total_score = total
                 instance.save(update_fields=["total_score"])
         return instance
+
+
+# ===========================================================================
+# QuizSubmission (Student Live Attempt & Work Submission Lifecycle)
+# ===========================================================================
+
+class QuizSubmissionSerializer(serializers.ModelSerializer):
+    student_name = serializers.SerializerMethodField()
+    student_phone = serializers.CharField(source="student.phone_number", read_only=True)
+    cohort_name = serializers.CharField(source="cohort.name", read_only=True, default=None)
+    quiz_title = serializers.CharField(source="quiz.title", read_only=True)
+    work_submission_file_url = serializers.SerializerMethodField()
+    question_breakdown = serializers.SerializerMethodField()
+    graded_by_name = serializers.SerializerMethodField()
+    grade_overridden_by_name = serializers.SerializerMethodField()
+    is_grades_published = serializers.SerializerMethodField()
+
+    def get_is_grades_published(self, obj):
+        from django.utils import timezone
+        now = timezone.now()
+        quiz = getattr(obj, "quiz", None)
+        cohort = getattr(obj, "cohort", None)
+        sched = None
+        if quiz and cohort:
+            from apps.lms.models import CohortQuizSchedule
+            sched = CohortQuizSchedule.objects.filter(cohort=cohort, quiz=quiz).first()
+
+        effective_open = (sched and sched.open_date) or (quiz and quiz.open_date)
+        effective_deadline = (sched and sched.deadline) or (quiz and quiz.deadline)
+
+        # Cannot release or disclose grades to students before open date or deadline has passed
+        if effective_open and effective_open > now:
+            return False
+        if effective_deadline and effective_deadline > now:
+            return False
+
+        if quiz and getattr(quiz, "release_grades_immediately", False):
+            return True
+        if sched and (getattr(sched, "release_grades_immediately", False) or getattr(sched, "grades_published", False)):
+            return True
+        elif quiz:
+            from apps.lms.models import CohortQuizSchedule
+            if CohortQuizSchedule.objects.filter(quiz=quiz, grades_published=True).exists():
+                return True
+        return False
+
+    def get_graded_by_name(self, obj):
+        if not obj.graded_by:
+            return None
+        name = obj.graded_by.get_full_name() if hasattr(obj.graded_by, "get_full_name") else ""
+        return name or getattr(obj.graded_by, "phone_number", "") or "Staff"
+
+    def get_grade_overridden_by_name(self, obj):
+        user = obj.grade_overridden_by or (obj.graded_by if obj.is_grade_overridden else None)
+        if not user:
+            return None
+        name = user.get_full_name() if hasattr(user, "get_full_name") else ""
+        return name or getattr(user, "phone_number", "") or "Staff"
+
+    def get_student_name(self, obj):
+        name = f"{getattr(obj.student, 'first_name', '')} {getattr(obj.student, 'last_name', '')}".strip()
+        return name or getattr(obj.student, "phone_number", "") or "Student"
+
+    def get_work_submission_file_url(self, obj):
+        if not obj.work_submission_file:
+            return None
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(obj.work_submission_file.url)
+        return getattr(obj.work_submission_file, "url", None)
+
+    def get_question_breakdown(self, obj):
+        """
+        Provides detailed breakdown of questions, options, student's selected answer,
+        and correctness for staff/tutors to review submitted contents.
+        """
+        student_answers = obj.student_answers or {}
+        items = obj.quiz.items.all().order_by("sort_order")
+        flagged_list = [str(x) for x in (getattr(obj, "flagged_questions", None) or [])]
+        breakdown = []
+        for it in items:
+            it_key = str(it.id)
+            selected = student_answers.get(it_key)
+            if selected is None:
+                selected = student_answers.get(str(it.sort_order))
+            is_correct = False
+            if selected is not None and it.correct_option:
+                is_correct = str(selected).strip().upper() == str(it.correct_option).strip().upper()
+
+            is_flagged_for_review = it_key in flagged_list or str(it.sort_order) in flagged_list
+
+            options_dict = {}
+            if it.option_a:
+                options_dict["A"] = it.option_a
+            if it.option_b:
+                options_dict["B"] = it.option_b
+            if it.option_c:
+                options_dict["C"] = it.option_c
+            if it.option_d:
+                options_dict["D"] = it.option_d
+
+            breakdown.append({
+                "item_id": it_key,
+                "order": it.sort_order,
+                "question_text": it.question_text,
+                "points": it.points,
+                "options": options_dict,
+                "correct_option": it.correct_option,
+                "explanation": it.explanation,
+                "student_answer": selected,
+                "is_correct": is_correct,
+                "is_flagged_for_review": is_flagged_for_review,
+            })
+        return breakdown
+
+    class Meta:
+        model = QuizSubmission
+        fields = [
+            "id", "quiz", "quiz_title", "student", "student_name", "student_phone",
+            "cohort", "cohort_name", "attempt_number", "quiz_type",
+            "score", "total_score", "percentage", "is_passed",
+            "is_auto_graded", "auto_score", "is_grade_overridden",
+            "grade_overridden_by", "grade_overridden_by_name", "grade_overridden_at", "grade_override_reason",
+            "student_answers", "work_submission_text", "work_submission_file", "work_submission_file_url",
+            "question_breakdown", "flagged_questions",
+            "time_spent_seconds", "tab_switch_count", "proctoring_violations", "is_flagged",
+            "is_grades_published",
+            "feedback", "graded_by", "graded_by_name", "graded_at", "created_at",
+        ]
+        read_only_fields = [
+            "id", "score", "total_score", "percentage", "is_passed",
+            "is_flagged", "is_auto_graded", "auto_score", "is_grade_overridden",
+            "grade_overridden_by", "grade_overridden_by_name", "grade_overridden_at",
+            "is_grades_published",
+            "graded_by", "graded_by_name", "graded_at", "created_at",
+        ]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        # Redact results for students if grades are not published or set to immediate release
+        if user and getattr(user, "role", None) == UserRole.STUDENT:
+            is_published = data.get("is_grades_published", False)
+            if not is_published:
+                data["score"] = None
+                data["percentage"] = None
+                data["is_passed"] = None
+                data["auto_score"] = None
+                data["question_breakdown"] = []
+                data["feedback"] = ""
+        return data
+

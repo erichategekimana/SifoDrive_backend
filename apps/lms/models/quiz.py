@@ -13,7 +13,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.models import BaseModel, OrderedModel
-from apps.lms.models.choices import CorrectOption, Difficulty, QuizDomain
+from apps.lms.models.choices import CorrectOption, Difficulty, QuizDomain, QuizType
 from apps.lms.models.content import Module, RoadSign
 from apps.lms.models.curriculum import Course
 
@@ -158,6 +158,27 @@ class Quiz(BaseModel):
         verbose_name=_("Module"),
         help_text=_("Optional: link quiz directly to a specific module within the course."),
     )
+    quiz_type = models.CharField(
+        _("Quiz Type"),
+        max_length=20,
+        choices=QuizType.choices,
+        default=QuizType.LIVE_TIMED,
+        db_index=True,
+        help_text=_(
+            "LIVE_TIMED: Live attempt with timer, attempts, and tab proctoring. "
+            "WORK_SUBMISSION: Self-paced assignment where student submits their work/answers."
+        ),
+    )
+    enable_proctoring = models.BooleanField(
+        _("Enable Tab Proctoring"),
+        default=True,
+        help_text=_("Tracks tab switches and window blur incidents during live quiz."),
+    )
+    max_tab_switches_allowed = models.PositiveSmallIntegerField(
+        _("Max Tab Switches Allowed"),
+        default=3,
+        help_text=_("Number of tab switch warnings before flagging or auto-submitting."),
+    )
     title = models.CharField(_("Title (English)"), max_length=200)
     title_kinyarwanda = models.CharField(
         _("Title (Kinyarwanda)"), max_length=200, blank=True, default=""
@@ -232,6 +253,14 @@ class Quiz(BaseModel):
     )
     shuffle_questions = models.BooleanField(_("Shuffle Questions"), default=False)
     is_published = models.BooleanField(_("Published"), default=False, db_index=True)
+    release_grades_immediately = models.BooleanField(
+        _("Release Grades Immediately"),
+        default=False,
+        help_text=_(
+            "If True, students view their scores and results immediately upon completion. "
+            "If False (default), tutor must manually publish grades."
+        ),
+    )
     allow_tutor_scheduling = models.BooleanField(
         _("Allow Tutor Scheduling"),
         default=True,
@@ -371,3 +400,146 @@ class QuizQuestionItem(OrderedModel):
 
     def __str__(self) -> str:
         return f"{self.quiz.title} - Q{self.sort_order}: {self.question_text[:60]}"
+
+
+# ===========================================================================
+# QuizSubmission (Student Live Attempt & Work Submission Lifecycle)
+# ===========================================================================
+
+class QuizSubmission(BaseModel):
+    """
+    Records student attempt lifecycle for both Quiz types:
+    - LIVE_TIMED: Captures live countdown duration, score, and proctoring tab-switch telemetry.
+    - WORK_SUBMISSION: Captures student work text, attached files, answers, and rubric grading.
+    """
+
+    quiz = models.ForeignKey(
+        Quiz, on_delete=models.CASCADE, related_name="submissions", verbose_name=_("Quiz")
+    )
+    student = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="quiz_submissions",
+        verbose_name=_("Student"),
+    )
+    cohort = models.ForeignKey(
+        "live_classes.Cohort",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="quiz_submissions",
+        verbose_name=_("Cohort"),
+    )
+    attempt_number = models.PositiveSmallIntegerField(_("Attempt Number"), default=1)
+    quiz_type = models.CharField(
+        _("Quiz Type"),
+        max_length=20,
+        choices=QuizType.choices,
+        default=QuizType.LIVE_TIMED,
+    )
+    score = models.PositiveIntegerField(_("Score / Achieved Points"), default=0)
+    total_score = models.PositiveIntegerField(_("Total Points Possible"), default=100)
+    percentage = models.FloatField(_("Percentage (0-100)"), default=0.0)
+    is_passed = models.BooleanField(_("Passed Threshold"), default=False)
+
+    # Student submission payloads
+    student_answers = models.JSONField(
+        _("Student Answers"),
+        default=dict,
+        blank=True,
+        help_text=_("Mapping of question item id -> selected option or written response."),
+    )
+    work_submission_text = models.TextField(
+        _("Work Submission Body / Notes"),
+        blank=True,
+        default="",
+        help_text=_("Detailed submission text for WORK_SUBMISSION take-home quizzes."),
+    )
+    work_submission_file = models.FileField(
+        _("Work Submission File"),
+        upload_to="lms/quiz_submissions/",
+        null=True,
+        blank=True,
+        help_text=_("Optional attachment uploaded by the student."),
+    )
+
+    # Telemetry and Simple Proctoring
+    time_spent_seconds = models.PositiveIntegerField(_("Time Spent (seconds)"), default=0)
+    tab_switch_count = models.PositiveSmallIntegerField(
+        _("Tab Switch Count"),
+        default=0,
+        help_text=_("Number of times the student switched tabs or navigated away during live exam."),
+    )
+    proctoring_violations = models.JSONField(
+        _("Proctoring Violations Log"),
+        default=list,
+        blank=True,
+        help_text=_("Chronological log of tab blur/hide events recorded during the live attempt."),
+    )
+    is_flagged = models.BooleanField(
+        _("Flagged for Suspicious Activity"),
+        default=False,
+        help_text=_("Set True if tab switch count exceeded the allowed proctoring threshold."),
+    )
+    flagged_questions = models.JSONField(
+        _("Flagged Questions for Review"),
+        default=list,
+        blank=True,
+        help_text=_("List of question IDs flagged by student for review during quiz."),
+    )
+
+    feedback = models.TextField(_("Tutor / Grader Feedback"), blank=True, default="")
+    is_auto_graded = models.BooleanField(
+        _("Is Auto Graded"),
+        default=True,
+        help_text=_("Indicates whether this attempt was automatically scored by the quiz engine."),
+    )
+    auto_score = models.PositiveIntegerField(
+        _("Original Auto Score"),
+        null=True,
+        blank=True,
+        help_text=_("The initial auto-graded score before any tutor adjustments."),
+    )
+    is_grade_overridden = models.BooleanField(
+        _("Grade Overridden"),
+        default=False,
+        db_index=True,
+        help_text=_("True if a tutor or administrator manually edited the auto-calculated grade."),
+    )
+    grade_overridden_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="overridden_quiz_submissions",
+        verbose_name=_("Grade Overridden By"),
+        help_text=_("Staff member or tutor who overrode the auto-grade."),
+    )
+    grade_overridden_at = models.DateTimeField(
+        _("Grade Overridden At"),
+        null=True,
+        blank=True,
+    )
+    grade_override_reason = models.TextField(
+        _("Grade Override Reason"),
+        blank=True,
+        default="",
+    )
+    graded_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="graded_quiz_submissions",
+        verbose_name=_("Graded By"),
+    )
+    graded_at = models.DateTimeField(_("Graded At"), null=True, blank=True)
+
+    class Meta(BaseModel.Meta):
+        verbose_name = _("Quiz Submission")
+        verbose_name_plural = _("Quiz Submissions")
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.student.phone_number} - {self.quiz.title} (Attempt #{self.attempt_number})"
+

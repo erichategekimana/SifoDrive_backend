@@ -282,6 +282,21 @@ def test_tutor_activity_creation_submission_and_grading(tutor_1, student_1, coho
     assert graded.tutor_feedback == "Excellent thorough inspection checklist!"
     assert graded.graded_by == tutor_1
 
+    # Tutor attempts to publish grades before deadline -> raises ValidationError
+    with pytest.raises(ValidationError) as exc_info:
+        CohortActivityService.publish_grades(activity)
+    assert "Cannot publish activity grades before the activity deadline" in str(exc_info.value)
+    activity.refresh_from_db()
+    assert activity.grades_published is False
+
+    # Simulate deadline passing
+    activity.due_date = timezone.now() - datetime.timedelta(hours=1)
+    activity.save(update_fields=["due_date"])
+
+    # Now publishing grades succeeds
+    published_act = CohortActivityService.publish_grades(activity)
+    assert published_act.grades_published is True
+
 
 @pytest.mark.django_db
 def test_individual_tutor_curriculum_distribution_and_unassign(

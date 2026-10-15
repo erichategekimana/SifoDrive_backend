@@ -63,7 +63,7 @@ class CohortActivity(BaseModel):
     title_kinyarwanda = models.CharField(
         _("Title (Kinyarwanda)"), max_length=200, blank=True, default=""
     )
-    description = models.TextField(_("Instructions (English)"))
+    description = models.TextField(_("Instructions (English)"), blank=True, default="")
     description_kinyarwanda = models.TextField(
         _("Instructions (Kinyarwanda)"), blank=True, default=""
     )
@@ -80,10 +80,29 @@ class CohortActivity(BaseModel):
         choices=ActivitySubmissionType.choices,
         default=ActivitySubmissionType.TEXT_RESPONSE,
     )
+    allowed_submission_methods = models.JSONField(
+        _("Allowed Submission Methods"), default=list, blank=True
+    )
+    resource_type = models.CharField(
+        _("Resource Type"), max_length=50, default="TEXT"
+    )
+    attachment = models.FileField(
+        _("Activity Attachment File"),
+        upload_to="lms/activities/attachments/",
+        null=True,
+        blank=True,
+    )
+    attachment_url = models.CharField(
+        _("Resource URL (Google Slides / Drive / Web)"),
+        max_length=1000,
+        blank=True,
+        default="",
+    )
 
     total_points = models.PositiveIntegerField(_("Total Points"), default=100)
     passing_points = models.PositiveIntegerField(_("Passing Points"), default=70)
 
+    open_date = models.DateTimeField(_("Available / Open Date"), null=True, blank=True)
     due_date = models.DateTimeField(_("Due Date / Deadline"), null=True, blank=True)
     allow_late_submission = models.BooleanField(
         _("Allow Late Submissions"), default=False
@@ -93,6 +112,17 @@ class CohortActivity(BaseModel):
         _("Published to Cohort"), default=True, db_index=True
     )
     is_locked = models.BooleanField(_("Locked"), default=False, db_index=True)
+    grades_published = models.BooleanField(
+        _("Grades Published"), default=False, db_index=True
+    )
+    release_grades_immediately = models.BooleanField(
+        _("Release Grades Immediately"),
+        default=False,
+        help_text=_(
+            "If True, grades are visible to students immediately upon grading. "
+            "If False (default), tutor manually publishes grades."
+        ),
+    )
 
     class Meta(BaseModel.Meta):
         verbose_name = _("Cohort Activity")
@@ -137,6 +167,15 @@ class StudentActivitySubmission(BaseModel):
     )
     submission_text = models.TextField(
         _("Written Submission"), blank=True, default=""
+    )
+    submission_link = models.CharField(
+        _("Submitted Link / Google Drive URL"),
+        max_length=1000,
+        blank=True,
+        default="",
+    )
+    submission_method = models.CharField(
+        _("Submission Method"), max_length=50, blank=True, default="TEXT"
     )
     attachment = models.FileField(
         _("Uploaded File"),

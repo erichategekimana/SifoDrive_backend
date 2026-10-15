@@ -75,12 +75,29 @@ urlpatterns = [
 ]
 
 
+import re
+from django.urls import re_path
+from django.views.decorators.clickjacking import xframe_options_exempt
+from django.views.static import serve
+
 # ---------------------------------------------------------------------------
 # Development Extras (Debug Toolbar + Static Media serving)
 # ---------------------------------------------------------------------------
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+    media_prefix = settings.MEDIA_URL.lstrip("/")
+    static_prefix = settings.STATIC_URL.lstrip("/")
+    urlpatterns += [
+        re_path(
+            r"^%s(?P<path>.*)$" % re.escape(media_prefix),
+            xframe_options_exempt(serve),
+            {"document_root": settings.MEDIA_ROOT},
+        ),
+        re_path(
+            r"^%s(?P<path>.*)$" % re.escape(static_prefix),
+            xframe_options_exempt(serve),
+            {"document_root": settings.STATIC_ROOT},
+        ),
+    ]
 
     try:
         import debug_toolbar
@@ -89,3 +106,4 @@ if settings.DEBUG:
         ] + urlpatterns
     except ImportError:
         pass
+

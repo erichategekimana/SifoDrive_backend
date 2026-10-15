@@ -97,6 +97,9 @@ MIDDLEWARE = [
     "apps.audit.middleware.AuditLogMiddleware",  # Immutable audit logging
 ]
 
+# Allow frame embedding within same origin (LMS inline PDF/resource viewers)
+X_FRAME_OPTIONS = "SAMEORIGIN"
+
 
 # ---------------------------------------------------------------------------
 # Templates

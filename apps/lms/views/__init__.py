@@ -68,6 +68,10 @@ from apps.lms.views.quiz_views import (  # noqa: F401
     QuizListCreateView,
     QuizDetailUpdateDeleteView,
     QuizPublishToggleView,
+    QuizPublishGradesView,
+    QuizSubmitView,
+    QuizSubmissionListView,
+    QuizSubmissionGradeView,
 )
 
 from apps.lms.views.progress_views import (  # noqa: F401
@@ -83,6 +87,10 @@ from apps.lms.views.progress_views import (  # noqa: F401
 from apps.lms.views.support_views import (  # noqa: F401
     HelpTicketListCreateView,
     HelpTicketDetailView,
+    HelpTicketForwardView,
+    HelpTicketStatusUpdateView,
+    HelpTicketFeedbackView,
+    SupportAssignableUsersView,
     SupportAnnouncementsView,
     SupportAnnouncementDetailView,
 )
@@ -95,6 +103,7 @@ from apps.lms.views.tutor_assignment_views import (  # noqa: F401
 
 from apps.lms.views.cohort_material_views import (  # noqa: F401
     TutorAssignedCohortsListView,
+    TutorCohortStudentsListView,
     TutorCohortCoursesListView,
     TutorCohortModulesView,
     TutorCohortModuleReleaseUpdateView,
@@ -109,6 +118,7 @@ from apps.lms.views.activity_views import (  # noqa: F401
     TutorCohortActivityDetailUpdateDeleteView,
     TutorCohortActivitySubmissionsListView,
     TutorCohortActivityGradeSubmissionView,
+    TutorCohortActivityPublishGradesView,
     StudentCohortActivitiesListView,
     StudentCohortActivitySubmitView,
 )
@@ -126,6 +136,7 @@ from apps.lms.views.discussion_views import (  # noqa: F401
 from apps.lms.views.group_views import (  # noqa: F401
     CourseRosterView,
     CourseGroupListCreateView,
+    AllCourseGroupsListView,
     CourseGroupDetailView,
     CourseGroupJoinToggleView,
     CourseGroupMessageCreateView,

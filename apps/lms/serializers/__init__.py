@@ -23,6 +23,7 @@ from .quiz_serializers import (
     QuizListSerializer,
     QuizDetailSerializer,
     QuizWriteSerializer,
+    QuizSubmissionSerializer,
 )
 from .content_serializers import (
     LessonListSerializer,
@@ -56,6 +57,10 @@ from .support_serializers import (
     HelpTicketSerializer,
     HelpTicketCreateSerializer,
     HelpTicketResolveSerializer,
+    HelpTicketForwardSerializer,
+    HelpTicketStatusUpdateSerializer,
+    HelpTicketFeedbackSerializer,
+    SupportAssignableUserSerializer,
     AnnouncementSerializer,
     AnnouncementCreateSerializer,
 )
@@ -97,6 +102,7 @@ __all__ = [
     "QuizListSerializer",
     "QuizDetailSerializer",
     "QuizWriteSerializer",
+    "QuizSubmissionSerializer",
     # Support
     "HelpTicketSerializer",
     "HelpTicketCreateSerializer",

@@ -105,91 +105,187 @@ def test_support_announcements_empty_when_no_records(student_user):
     assert res.data["data"] == []
 
 
-@pytest.mark.django_db
-def test_tutor_can_post_and_student_views_cohort_announcements(tutor_user, student_user):
-    from apps.live_classes.models import Cohort
-    from apps.lms.models import Course, Curriculum, AnnouncementTargetType
-
-    curriculum = Curriculum.objects.create(title="Theory", code="THEORY-01")
-    course = Course.objects.create(title="Road Signs", code="SIGNS-01", curriculum=curriculum)
-    cohort_a = Cohort.objects.create(name="Cohort Morning", code="COHORT-MORN", start_date="2026-01-01")
-    cohort_b = Cohort.objects.create(name="Cohort Evening", code="COHORT-EVE", start_date="2026-01-01")
-
-    cohort_a.assigned_tutors.add(tutor_user)
-    cohort_b.assigned_tutors.add(tutor_user)
-    cohort_a.students.add(student_user)
-
-    # Other student in cohort B
-    other_student = User.objects.create_user(
-        phone_number="+250788777888",
-        first_name="David",
-        last_name="Rutayisire",
-        role=UserRole.STUDENT,
+@pytest.fixture
+def system_admin_user(db):
+    return User.objects.create_user(
+        phone_number="+250788111999",
+        first_name="Super",
+        last_name="Admin",
+        role=UserRole.SYSTEM_ADMIN,
+        is_superuser=True,
         password="TestPassword123!",
     )
-    cohort_b.students.add(other_student)
 
-    tutor_client = APIClient()
-    tutor_client.force_authenticate(user=tutor_user)
 
-    # 1. Tutor posts announcement for SINGLE_COHORT (Cohort A only)
-    post_res = tutor_client.post(
+@pytest.mark.django_db
+def test_system_admin_can_post_announcements_and_training_admin_forbidden(
+    system_admin_user, student_user, training_admin_user
+):
+    from apps.lms.models import AnnouncementTargetType
+
+    # 1. Training admin attempts to post a bulletin -> MUST BE FORBIDDEN (403)
+    train_client = APIClient()
+    train_client.force_authenticate(user=training_admin_user)
+    forbidden_res = train_client.post(
         "/api/v1/lms/support/announcements/",
         {
-            "course_id": str(course.id),
-            "title": "Morning Cohort Special Review",
-            "content": "Special Q&A session tomorrow morning at 09:00.",
-            "target_type": AnnouncementTargetType.SINGLE_COHORT,
-            "cohort_id": str(cohort_a.id),
+            "title": "Training Admin Attempt",
+            "content": "This should not be allowed.",
+            "target_type": AnnouncementTargetType.PLATFORM_WIDE,
+            "category": "PLATFORM_UPDATE",
+        },
+        format="json",
+    )
+    assert forbidden_res.status_code == status.HTTP_403_FORBIDDEN
+
+    # 2. System Admin creates platform update & help announcement -> SUCCEEDS (201)
+    admin_client = APIClient()
+    admin_client.force_authenticate(user=system_admin_user)
+    post_res = admin_client.post(
+        "/api/v1/lms/support/announcements/",
+        {
+            "title": "Platform Maintenance & Feature Release",
+            "content": "Scheduled maintenance on Saturday 22:00 UTC. New calendar features released.",
+            "target_type": AnnouncementTargetType.PLATFORM_WIDE,
+            "category": "PLATFORM_UPDATE",
+            "is_pinned": True,
         },
         format="json",
     )
     assert post_res.status_code == status.HTTP_201_CREATED
     ann_id = post_res.data["data"]["id"]
-    assert post_res.data["data"]["target_type"] == "SINGLE_COHORT"
-    assert post_res.data["data"]["cohort_name"] == "Cohort Morning"
+    assert post_res.data["data"]["title"] == "Platform Maintenance & Feature Release"
+    assert post_res.data["data"]["category"] == "PLATFORM_UPDATE"
+    assert post_res.data["data"]["is_pinned"] is True
 
-    # Student Jean in Cohort A can see it
+    # 3. Student can view this platform-wide announcement in Support tab
     student_client = APIClient()
     student_client.force_authenticate(user=student_user)
-    res_a = student_client.get(f"/api/v1/lms/support/announcements/?course_id={course.id}")
-    assert res_a.status_code == status.HTTP_200_OK
-    assert len(res_a.data["data"]) == 1
-    assert res_a.data["data"][0]["title"] == "Morning Cohort Special Review"
+    get_res = student_client.get("/api/v1/lms/support/announcements/")
+    assert get_res.status_code == status.HTTP_200_OK
+    assert len(get_res.data["data"]) == 1
+    assert get_res.data["data"][0]["title"] == "Platform Maintenance & Feature Release"
+    assert get_res.data["data"][0]["category"] == "PLATFORM_UPDATE"
 
-    # Other student David in Cohort B CANNOT see it
-    other_client = APIClient()
-    other_client.force_authenticate(user=other_student)
-    res_b = other_client.get(f"/api/v1/lms/support/announcements/?course_id={course.id}")
-    assert res_b.status_code == status.HTTP_200_OK
-    assert len(res_b.data["data"]) == 0
+    # 4. System Admin can delete the announcement
+    del_res = admin_client.delete(f"/api/v1/lms/support/announcements/{ann_id}/")
+    assert del_res.status_code == status.HTTP_200_OK
 
-    # 2. Tutor posts announcement for ALL_ASSIGNED_COHORTS
-    post_all_res = tutor_client.post(
-        "/api/v1/lms/support/announcements/",
+    # 5. Announcement is no longer visible
+    get_res_after = student_client.get("/api/v1/lms/support/announcements/")
+    assert len(get_res_after.data["data"]) == 0
+
+
+@pytest.fixture
+def training_admin_user(db):
+    return User.objects.create_user(
+        phone_number="+250788999000",
+        first_name="Admin",
+        last_name="Training",
+        role=UserRole.TRAINING_ADMIN,
+        password="TestPassword123!",
+    )
+
+
+@pytest.mark.django_db
+def test_training_admin_collects_forwards_and_student_submits_feedback(
+    student_user, tutor_user, training_admin_user
+):
+    # 1. Student creates ticket
+    student_client = APIClient()
+    student_client.force_authenticate(user=student_user)
+
+    create_res = student_client.post(
+        "/api/v1/lms/support/tickets/",
         {
-            "course_id": str(course.id),
-            "title": "All Cohorts: Highway Code Update",
-            "content": "Please read chapter 4 regarding right of way changes.",
-            "target_type": AnnouncementTargetType.ALL_ASSIGNED_COHORTS,
+            "recipient_role": TicketRecipientRole.TECH_SUPPORT,
+            "category": TicketCategory.TECHNICAL_ISSUE,
+            "subject": "Platform login error",
+            "message": "I cannot load lesson 3 video stream on mobile.",
+            "priority": TicketPriority.URGENT,
         },
         format="json",
     )
-    assert post_all_res.status_code == status.HTTP_201_CREATED
-    assert post_all_res.data["data"]["target_type"] == "ALL_ASSIGNED_COHORTS"
+    assert create_res.status_code == status.HTTP_201_CREATED
+    ticket_id = create_res.data.get("id") or (create_res.data.get("data") or {}).get("id")
 
-    # Both students now see the broadcast announcement!
-    res_a_after = student_client.get(f"/api/v1/lms/support/announcements/?course_id={course.id}")
-    assert len(res_a_after.data["data"]) == 2
+    # 2. Training Admin collects and sees all tickets
+    admin_client = APIClient()
+    admin_client.force_authenticate(user=training_admin_user)
 
-    res_b_after = other_client.get(f"/api/v1/lms/support/announcements/?course_id={course.id}")
-    assert len(res_b_after.data["data"]) == 1
-    assert res_b_after.data["data"][0]["title"] == "All Cohorts: Highway Code Update"
+    admin_list = admin_client.get("/api/v1/lms/support/tickets/")
+    assert admin_list.status_code == status.HTTP_200_OK
+    tickets = admin_list.data.get("data") or admin_list.data.get("results") or []
+    found = [t for t in tickets if str(t["id"]) == str(ticket_id)]
+    assert len(found) == 1
+    assert found[0]["status"] == TicketStatus.OPEN
 
-    # 3. Tutor can delete announcement
-    del_res = tutor_client.delete(f"/api/v1/lms/support/announcements/{ann_id}/")
-    assert del_res.status_code == status.HTTP_200_OK
+    # 2b. Training Admin queries assignable users
+    assignable_res = admin_client.get("/api/v1/lms/support/assignable-users/")
+    assert assignable_res.status_code == status.HTTP_200_OK
+    assignable_users = assignable_res.data.get("data", [])
+    assert any(u["id"] == str(tutor_user.id) for u in assignable_users)
 
-    res_a_final = student_client.get(f"/api/v1/lms/support/announcements/?course_id={course.id}")
-    assert len(res_a_final.data["data"]) == 1
+    # 3. Training Admin forwards ticket to tutor
+    forward_res = admin_client.post(
+        f"/api/v1/lms/support/tickets/{ticket_id}/forward/",
+        {
+            "assigned_to": str(tutor_user.id),
+            "internal_notes": "Please check student video permission on cohort 1.",
+        },
+        format="json",
+    )
+    assert forward_res.status_code == status.HTTP_200_OK
+    ticket = HelpTicket.objects.get(id=ticket_id)
+    assert ticket.assigned_to == tutor_user
+    assert ticket.forwarded_by == training_admin_user
+    assert ticket.status == TicketStatus.IN_PROGRESS
+    assert "Please check student video permission" in ticket.internal_notes
+
+    # 4. Training Admin updates ticket status to RESOLVED
+    status_res = admin_client.patch(
+        f"/api/v1/lms/support/tickets/{ticket_id}/status/",
+        {
+            "status": TicketStatus.RESOLVED,
+            "response": "The video stream encoding has been repaired. Please refresh your browser.",
+        },
+        format="json",
+    )
+    assert status_res.status_code == status.HTTP_200_OK
+    ticket.refresh_from_db()
+    assert ticket.status == TicketStatus.RESOLVED
+    assert "repaired" in ticket.response
+
+    # 5. Student provides feedback (Like & Solved)
+    feedback_res = student_client.post(
+        f"/api/v1/lms/support/tickets/{ticket_id}/feedback/",
+        {
+            "rating": "LIKE",
+            "resolution": "SOLVED",
+            "notes": "Thank you, it works quickly now!",
+        },
+        format="json",
+    )
+    assert feedback_res.status_code == status.HTTP_200_OK
+    ticket.refresh_from_db()
+    assert ticket.feedback_rating == "LIKE"
+    assert ticket.feedback_resolution == "SOLVED"
+    assert "works quickly" in ticket.feedback_notes
+    assert ticket.feedback_submitted_at is not None
+
+    # 6. If student reports UNSOLVED, ticket status is marked REOPENED
+    feedback_unsolved = student_client.post(
+        f"/api/v1/lms/support/tickets/{ticket_id}/feedback/",
+        {
+            "rating": "DISLIKE",
+            "resolution": "UNSOLVED",
+            "notes": "Actually video 4 still stops at minute 2.",
+        },
+        format="json",
+    )
+    assert feedback_unsolved.status_code == status.HTTP_200_OK
+    ticket.refresh_from_db()
+    assert ticket.status == TicketStatus.REOPENED
+    assert ticket.feedback_resolution == "UNSOLVED"
+
 

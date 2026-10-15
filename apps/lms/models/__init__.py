@@ -23,6 +23,7 @@ from apps.lms.models.choices import (  # noqa: F401
     LessonContentType,
     DocumentFormat,
     QuizDomain,
+    QuizType,
     RoadSignCategory,
 )
 
@@ -46,6 +47,7 @@ from apps.lms.models.quiz import (  # noqa: F401
     QuizQuestion,
     Quiz,
     QuizQuestionItem,
+    QuizSubmission,
 )
 
 # Progress / engagement layer
@@ -58,6 +60,8 @@ from apps.lms.models.progress import (  # noqa: F401
 from apps.lms.models.support import (  # noqa: F401
     HelpTicket,
     TicketCategory,
+    TicketFeedbackRating,
+    TicketFeedbackResolution,
     TicketPriority,
     TicketRecipientRole,
     TicketStatus,
@@ -107,6 +111,7 @@ __all__ = [
     "Difficulty",
     "LessonType",
     "QuizDomain",
+    "QuizType",
     "RoadSignCategory",
     # Curriculum
     "Curriculum",
@@ -120,6 +125,7 @@ __all__ = [
     "QuizQuestion",
     "Quiz",
     "QuizQuestionItem",
+    "QuizSubmission",
     # Progress
     "StudentProgress",
     "LessonBookmark",

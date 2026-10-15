@@ -56,6 +56,7 @@ class AuditAction(models.TextChoices):
     CONTENT_PUBLISHED   = "CONTENT_PUBLISHED",   _("Course Content Published")
     CONTENT_DELETED     = "CONTENT_DELETED",     _("Course Content Deleted")
     QUESTION_CREATED    = "QUESTION_CREATED",    _("Question Bank Entry Created")
+    QUIZ_GRADE_OVERRIDDEN = "QUIZ_GRADE_OVERRIDDEN", _("Quiz Grade Overridden by Tutor/Staff")
 
     # ── Compliance / System ──────────────────────────────────────────────────
     PII_EXPORT          = "PII_EXPORT",          _("PII Data Exported")
@@ -96,6 +97,7 @@ SEVERITY_MAP: dict[str, str] = {
     AuditAction.PAYMENT_REFUNDED:   AuditSeverity.HIGH,
     AuditAction.EXAM_CERTIFIED:     AuditSeverity.HIGH,
     AuditAction.EXAM_REJECTED:      AuditSeverity.HIGH,
+    AuditAction.QUIZ_GRADE_OVERRIDDEN: AuditSeverity.HIGH,
 
     # Medium — exam flow, payments, consent, content management
     AuditAction.EXAM_STARTED:       AuditSeverity.MEDIUM,

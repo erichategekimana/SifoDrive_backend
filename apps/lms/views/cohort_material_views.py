@@ -81,6 +81,35 @@ class TutorAssignedCohortsListView(SuccessResponseMixin, APIView):
         return self.success_response(data=data)
 
 
+class TutorCohortStudentsListView(SuccessResponseMixin, APIView):
+    """
+    GET /api/v1/lms/tutor/cohorts/<uuid:cohort_id>/students/
+    Returns active enrolled students for a cohort assigned to the requesting tutor (or admin).
+    """
+
+    permission_classes = [IsStaffOrAdmin]
+
+    def get(self, request, cohort_id):
+        cohort = _get_cohort_and_validate_access(cohort_id, request.user)
+        students = cohort.students.filter(is_active=True).order_by("first_name", "last_name", "phone_number")
+
+        data = [
+            {
+                "id": str(s.id),
+                "name": s.get_full_name() or s.phone_number,
+                "first_name": s.first_name,
+                "last_name": s.last_name,
+                "student_id": s.student_id or f"SF-{str(s.id)[:8].upper()}",
+                "phone_number": s.phone_number,
+                "email": s.email or "",
+                "category": getattr(s, "station_quota", None) or "General Road Rules",
+                "enrolled_at": s.created_at,
+            }
+            for s in students
+        ]
+        return self.success_response(data=data)
+
+
 class TutorCohortCoursesListView(SuccessResponseMixin, APIView):
     """
     GET /api/v1/lms/tutor/cohorts/<uuid:cohort_id>/courses/

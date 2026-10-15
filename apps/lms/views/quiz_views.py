@@ -13,14 +13,19 @@ Endpoints:
   POST      /lms/quizzes/<id>/publish/ → QuizPublishToggleView
 """
 
+import logging
+from django.db import models
 from rest_framework import generics, permissions
 from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.views import APIView
 
+logger = logging.getLogger(__name__)
+
 from apps.core.mixins import SuccessResponseMixin, SoftDeleteMixin
 from apps.core.pagination import LargeBatchPagination
 from apps.accounts.constants import UserRole
-from apps.lms.models import Quiz, QuizQuestion, CohortQuizSchedule
+from apps.live_classes.models import Cohort
+from apps.lms.models import Quiz, QuizQuestion, CohortQuizSchedule, QuizSubmission, QuizType
 from apps.lms.serializers import (
     QuizDetailSerializer,
     QuizListSerializer,
@@ -28,6 +33,7 @@ from apps.lms.serializers import (
     QuizQuestionListSerializer,
     QuizQuestionWriteSerializer,
     QuizWriteSerializer,
+    QuizSubmissionSerializer,
 )
 
 
@@ -254,6 +260,12 @@ class QuizDetailUpdateDeleteView(SoftDeleteMixin, SuccessResponseMixin, generics
                     enrolled_cohorts = user.enrolled_cohorts.filter(is_active=True)
                     if not enrolled_cohorts.exists():
                         enrolled_cohorts = user.enrolled_cohorts.all()
+                    if not enrolled_cohorts.exists():
+                        from apps.live_classes.models import Cohort
+                        default_cohort = Cohort.objects.filter(is_active=True).first()
+                        if default_cohort:
+                            default_cohort.students.add(user)
+                            enrolled_cohorts = user.enrolled_cohorts.all()
                     enrolled_cohort_ids = list(enrolled_cohorts.values_list("id", flat=True))
                     if not enrolled_cohort_ids:
                         raise NotFound("Quiz not found.")
@@ -264,13 +276,13 @@ class QuizDetailUpdateDeleteView(SoftDeleteMixin, SuccessResponseMixin, generics
                         is_locked=False,
                     ).exists()
                     if not is_unlocked:
-                        raise NotFound("Quiz not found.")
+                        raise PermissionDenied("This quiz is currently locked by your instructor.")
             return quiz
         except Quiz.DoesNotExist:
             raise NotFound("Quiz not found.")
 
     def retrieve(self, request, *args, **kwargs):
-        return self.success_response(data=QuizDetailSerializer(self.get_object()).data)
+        return self.success_response(data=QuizDetailSerializer(self.get_object(), context={"request": request}).data)
 
     def patch(self, request, *args, **kwargs):
         quiz = self.get_object()
@@ -298,6 +310,9 @@ class QuizDetailUpdateDeleteView(SoftDeleteMixin, SuccessResponseMixin, generics
                 allowed_fields.update({"time_limit_minutes"})
             if quiz.allow_tutor_edit_attempts:
                 allowed_fields.update({"max_attempts"})
+
+            # Tutors can configure grade release policy (Manual vs Immediate)
+            allowed_fields.add("release_grades_immediately")
 
             attempted_fields = set(request.data.keys())
             disallowed_fields = attempted_fields - allowed_fields
@@ -343,3 +358,341 @@ class QuizPublishToggleView(SuccessResponseMixin, APIView):
         quiz.save(update_fields=["is_published", "updated_at"])
         msg = "Quiz published successfully." if quiz.is_published else "Quiz unpublished."
         return self.success_response(data=QuizDetailSerializer(quiz).data, message=msg)
+
+
+class QuizPublishGradesView(SuccessResponseMixin, APIView):
+    """
+    POST /lms/quizzes/<id>/publish-grades/
+    Tutor or admin manually publishes grades for this quiz so students can view results.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk, *args, **kwargs):
+        if not _is_content_staff(request.user):
+            raise PermissionDenied("Only tutors and administrators can publish quiz grades.")
+        try:
+            quiz = Quiz.objects.get(id=pk)
+        except Quiz.DoesNotExist:
+            raise NotFound("Quiz not found.")
+
+        now = timezone.now()
+
+        def _validate_quiz_dates(target_open, target_deadline, label=None):
+            prefix = f"for {label} " if label else ""
+            if target_open and target_open > now:
+                formatted_open = target_open.strftime("%Y-%m-%d %H:%M")
+                raise ValidationError(
+                    f"Cannot publish quiz grades {prefix}before the open date ({formatted_open}). "
+                    "The quiz has not opened yet."
+                )
+            if target_deadline and target_deadline > now:
+                formatted_deadline = target_deadline.strftime("%Y-%m-%d %H:%M")
+                raise ValidationError(
+                    f"Cannot publish quiz grades {prefix}before the quiz deadline ({formatted_deadline}). "
+                    "Students may still be taking the quiz."
+                )
+
+        cohort_id = request.data.get("cohort_id")
+        if cohort_id:
+            try:
+                cohort = Cohort.objects.get(id=cohort_id)
+                sched, _ = CohortQuizSchedule.objects.get_or_create(cohort=cohort, quiz=quiz)
+                effective_open = sched.open_date or quiz.open_date
+                effective_deadline = sched.deadline or quiz.deadline
+                _validate_quiz_dates(effective_open, effective_deadline, f"cohort '{cohort.name}'")
+                sched.grades_published = True
+                sched.save(update_fields=["grades_published", "updated_at"])
+            except Cohort.DoesNotExist:
+                raise NotFound("Cohort not found.")
+        else:
+            if request.user.role == UserRole.TUTOR:
+                tutor_cohorts = request.user.assigned_cohorts.filter(is_active=True)
+                for c in tutor_cohorts:
+                    sched, _ = CohortQuizSchedule.objects.get_or_create(cohort=c, quiz=quiz)
+                    effective_open = sched.open_date or quiz.open_date
+                    effective_deadline = sched.deadline or quiz.deadline
+                    _validate_quiz_dates(effective_open, effective_deadline, f"cohort '{c.name}'")
+                for c in tutor_cohorts:
+                    sched, _ = CohortQuizSchedule.objects.get_or_create(cohort=c, quiz=quiz)
+                    sched.grades_published = True
+                    sched.save(update_fields=["grades_published", "updated_at"])
+            else:
+                _validate_quiz_dates(quiz.open_date, quiz.deadline)
+                for sched in CohortQuizSchedule.objects.filter(quiz=quiz):
+                    effective_open = sched.open_date or quiz.open_date
+                    effective_deadline = sched.deadline or quiz.deadline
+                    _validate_quiz_dates(effective_open, effective_deadline, f"cohort '{sched.cohort.name}'")
+                CohortQuizSchedule.objects.filter(quiz=quiz).update(grades_published=True)
+
+        return self.success_response(
+            message=f"Grades for quiz '{quiz.title}' published successfully to students."
+        )
+
+
+# ===========================================================================
+# QUIZ SUBMISSION & PROCTORING VIEWS
+# ===========================================================================
+
+class QuizSubmitView(SuccessResponseMixin, APIView):
+    """
+    POST /lms/quizzes/<id>/submit/
+    Submits a quiz attempt (LIVE_TIMED or WORK_SUBMISSION).
+    Enforces time limits, maximum attempts, and tab-switching proctoring violation logs.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk, *args, **kwargs):
+        try:
+            quiz = Quiz.objects.prefetch_related("items").get(pk=pk)
+        except Quiz.DoesNotExist:
+            raise NotFound("Quiz not found.")
+
+        user = request.user
+        if not _is_admin(user) and user.role in (UserRole.STUDENT, UserRole.GUEST):
+            from django.utils import timezone
+            now = timezone.now()
+            effective_open = quiz.open_date
+
+            enrolled_cohorts = user.enrolled_cohorts.filter(is_active=True)
+            if not enrolled_cohorts.exists():
+                enrolled_cohorts = user.enrolled_cohorts.all()
+            if enrolled_cohorts.exists():
+                enrolled_cohort_ids = list(enrolled_cohorts.values_list("id", flat=True))
+                schedules = CohortQuizSchedule.objects.filter(
+                    cohort_id__in=enrolled_cohort_ids,
+                    quiz=quiz,
+                )
+                sch = schedules.filter(is_published=True, is_locked=False).first()
+                if not sch and quiz.allow_tutor_scheduling:
+                    raise PermissionDenied("Cannot submit: This quiz is currently locked by your instructor.")
+                if sch and sch.open_date:
+                    effective_open = sch.open_date
+
+            if effective_open and effective_open > now:
+                formatted_date = effective_open.strftime("%Y-%m-%d %H:%M")
+                raise PermissionDenied(
+                    f"This quiz is scheduled to open on {formatted_date}. You cannot take or submit this quiz before its open date."
+                )
+
+        # Check attempts limit
+        prior_attempts = QuizSubmission.objects.filter(quiz=quiz, student=user).count()
+        if quiz.max_attempts > 0 and prior_attempts >= quiz.max_attempts:
+            raise PermissionDenied(
+                f"You have already reached the maximum attempts ({quiz.max_attempts}) for this quiz."
+            )
+
+        attempt_number = prior_attempts + 1
+
+        # Extract submitted payload
+        student_answers = request.data.get("student_answers", {})
+        if isinstance(student_answers, str):
+            import json
+            try:
+                student_answers = json.loads(student_answers)
+            except Exception:
+                student_answers = {}
+
+        work_submission_text = request.data.get("work_submission_text", "")
+        work_submission_file = request.FILES.get("work_submission_file")
+
+        time_spent_seconds = int(request.data.get("time_spent_seconds", 0) or 0)
+        tab_switch_count = int(request.data.get("tab_switch_count", 0) or 0)
+        proctoring_violations = request.data.get("proctoring_violations", [])
+        if isinstance(proctoring_violations, str):
+            import json
+            try:
+                proctoring_violations = json.loads(proctoring_violations)
+            except Exception:
+                proctoring_violations = []
+
+        flagged_questions = request.data.get("flagged_questions") or request.data.get("flagged_for_review_questions", [])
+        if isinstance(flagged_questions, str):
+            import json
+            try:
+                flagged_questions = json.loads(flagged_questions)
+            except Exception:
+                flagged_questions = []
+
+        is_flagged = False
+        if quiz.quiz_type == QuizType.LIVE_TIMED and quiz.enable_proctoring:
+            if tab_switch_count > quiz.max_tab_switches_allowed:
+                is_flagged = True
+
+        # Calculate scores if quiz has items
+        items = list(quiz.items.all())
+        earned_points = 0
+        total_possible = quiz.calculated_total_points or quiz.total_score or 100
+
+        if items:
+            for item in items:
+                student_choice = student_answers.get(str(item.id)) or student_answers.get(item.id)
+                if student_choice and str(student_choice).upper() == item.correct_option.upper():
+                    earned_points += item.points
+
+        percentage = round((earned_points / total_possible * 100), 1) if total_possible > 0 else 0.0
+        is_passed = percentage >= quiz.passing_score
+
+        # Cohort linkage if available
+        cohort = None
+        cohort_id = request.data.get("cohort_id") or request.data.get("cohort")
+        if cohort_id and str(cohort_id) not in ("undefined", "null", ""):
+            cohort = Cohort.objects.filter(id=cohort_id, is_active=True).first() or Cohort.objects.filter(id=cohort_id).first()
+        if not cohort and hasattr(user, "enrolled_cohorts"):
+            cohort = user.enrolled_cohorts.filter(is_active=True).first() or user.enrolled_cohorts.first()
+
+        is_auto_graded = bool(items or quiz.quiz_type == QuizType.LIVE_TIMED)
+        auto_score = earned_points if is_auto_graded else None
+
+        submission = QuizSubmission.objects.create(
+            quiz=quiz,
+            student=user,
+            cohort=cohort,
+            attempt_number=attempt_number,
+            quiz_type=quiz.quiz_type,
+            score=earned_points,
+            total_score=total_possible,
+            percentage=percentage,
+            is_passed=is_passed,
+            is_auto_graded=is_auto_graded,
+            auto_score=auto_score,
+            student_answers=student_answers,
+            work_submission_text=work_submission_text,
+            work_submission_file=work_submission_file,
+            time_spent_seconds=time_spent_seconds,
+            tab_switch_count=tab_switch_count,
+            proctoring_violations=proctoring_violations,
+            is_flagged=is_flagged,
+            flagged_questions=flagged_questions,
+        )
+
+        return self.created_response(
+            data=QuizSubmissionSerializer(submission, context={"request": request}).data,
+            message="Quiz submitted successfully.",
+        )
+
+
+class QuizSubmissionListView(SuccessResponseMixin, generics.ListAPIView):
+    """
+    GET /lms/quizzes/<id>/submissions/
+    Lists submissions for a quiz.
+    - Staff (Tutors/Admins): see student submissions, filtered by cohort or assigned cohorts.
+    - Students: see their own past attempts.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = QuizSubmissionSerializer
+
+    def get_queryset(self):
+        quiz_id = self.kwargs["pk"]
+        user = self.request.user
+        qs = QuizSubmission.objects.filter(quiz_id=quiz_id).select_related("student", "quiz", "cohort")
+
+        if user.role in (UserRole.STUDENT, UserRole.GUEST):
+            qs = qs.filter(student=user)
+        else:
+            cohort_id = self.request.query_params.get("cohort_id")
+            if cohort_id and str(cohort_id) not in ("undefined", "null", "all", ""):
+                try:
+                    import uuid
+                    uuid.UUID(str(cohort_id))
+                    qs = qs.filter(
+                        models.Q(cohort_id=cohort_id) | models.Q(student__enrolled_cohorts__id=cohort_id)
+                    ).distinct()
+                except ValueError:
+                    pass
+            elif user.role == UserRole.TUTOR and not (user.is_superuser or user.role in (UserRole.SYSTEM_ADMIN, UserRole.TRAINING_ADMIN)):
+                assigned_cohorts = user.assigned_cohorts.all()
+                if assigned_cohorts.exists():
+                    qs = qs.filter(
+                        models.Q(cohort__in=assigned_cohorts)
+                        | models.Q(student__enrolled_cohorts__in=assigned_cohorts)
+                        | models.Q(quiz__created_by=user)
+                        | models.Q(cohort__isnull=True)
+                    ).distinct()
+
+            flagged = self.request.query_params.get("is_flagged")
+            if flagged is not None:
+                qs = qs.filter(is_flagged=(flagged.lower() in ("true", "1")))
+
+        return qs.order_by("-created_at")
+
+
+class QuizSubmissionGradeView(SuccessResponseMixin, APIView):
+    """
+    POST /lms/quizzes/<id>/submissions/<submission_id>/grade/
+    Tutor or Admin manually grades a QuizSubmission and records updated score and feedback.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk, submission_id):
+        user = request.user
+        if not _is_content_staff(user):
+            raise PermissionDenied("Only tutors and administrators can grade quiz submissions.")
+
+        try:
+            submission = QuizSubmission.objects.select_related("quiz", "student", "cohort").get(id=submission_id, quiz_id=pk)
+        except QuizSubmission.DoesNotExist:
+            raise NotFound("Quiz submission not found.")
+
+        # Ensure tutor is in charge of this student's cohort
+        if user.role == UserRole.TUTOR and not (user.is_superuser or user.role in (UserRole.SYSTEM_ADMIN, UserRole.TRAINING_ADMIN)):
+            assigned_cohort_ids = set(user.assigned_cohorts.values_list("id", flat=True))
+            student_cohort_ids = set(submission.student.enrolled_cohorts.values_list("id", flat=True))
+            is_in_charge = bool(
+                not assigned_cohort_ids
+                or (submission.cohort_id and submission.cohort_id in assigned_cohort_ids)
+                or (assigned_cohort_ids & student_cohort_ids)
+                or (submission.student.assigned_tutor_id == user.id)
+                or (submission.quiz.created_by_id == user.id)
+            )
+            if not is_in_charge:
+                raise PermissionDenied("You can only grade submissions for students in your assigned cohorts.")
+
+        score = request.data.get("score")
+        feedback = request.data.get("feedback", "")
+        reason = request.data.get("reason", "")
+
+        from django.utils import timezone
+        old_score = submission.score
+        was_auto_graded = bool(submission.is_auto_graded or submission.quiz.quiz_type == QuizType.LIVE_TIMED)
+
+        if score is not None:
+            new_score = int(score)
+            if was_auto_graded or submission.auto_score is not None or old_score != new_score:
+                submission.is_grade_overridden = True
+                submission.grade_overridden_by = user
+                submission.grade_overridden_at = timezone.now()
+                if reason:
+                    submission.grade_override_reason = reason
+                if submission.auto_score is None:
+                    submission.auto_score = old_score
+
+            submission.score = new_score
+            if submission.total_score > 0:
+                submission.percentage = round((submission.score / submission.total_score) * 100, 1)
+                submission.is_passed = submission.percentage >= submission.quiz.passing_score
+
+        submission.feedback = feedback
+        submission.graded_by = user
+        submission.graded_at = timezone.now()
+        submission.save()
+
+        # Audit logging for manual grade changes
+        if was_auto_graded or submission.is_grade_overridden:
+            try:
+                from apps.audit.services.audit_service import AuditService
+                AuditService.log_quiz_grade_overridden(
+                    tutor=user,
+                    student=submission.student,
+                    submission=submission,
+                    old_score=old_score,
+                    new_score=submission.score,
+                    request=request,
+                )
+            except Exception as audit_err:
+                logger.warning("Failed to record audit log for quiz grade override: %s", audit_err)
+
+        return self.success_response(
+            data=QuizSubmissionSerializer(submission, context={"request": request}).data,
+            message="Quiz submission graded successfully.",
+        )
+

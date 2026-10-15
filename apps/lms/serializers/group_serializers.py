@@ -129,11 +129,16 @@ class CourseGroupListSerializer(serializers.ModelSerializer):
     members_count = serializers.SerializerMethodField()
     is_member = serializers.SerializerMethodField()
     created_at_formatted = serializers.SerializerMethodField()
+    last_activity = serializers.SerializerMethodField()
+    course_id = serializers.UUIDField(source="course.id", read_only=True)
+    course_title = serializers.CharField(source="course.title", read_only=True)
 
     class Meta:
         model = CourseGroup
         fields = [
             "id",
+            "course_id",
+            "course_title",
             "name",
             "description",
             "category",
@@ -143,6 +148,7 @@ class CourseGroupListSerializer(serializers.ModelSerializer):
             "is_member",
             "created_at_formatted",
             "created_at",
+            "last_activity",
         ]
 
     def get_creator_name(self, obj: CourseGroup) -> str:
@@ -164,6 +170,11 @@ class CourseGroupListSerializer(serializers.ModelSerializer):
 
     def get_created_at_formatted(self, obj: CourseGroup) -> str:
         return obj.created_at.strftime("%b %d, %Y")
+
+    def get_last_activity(self, obj: CourseGroup) -> str:
+        last_msg = obj.messages.filter(is_deleted=False).order_by("-created_at").first()
+        dt = last_msg.created_at if last_msg else (obj.updated_at or obj.created_at)
+        return format_relative_time(dt)
 
 
 class CourseGroupDetailSerializer(CourseGroupListSerializer):
@@ -194,13 +205,14 @@ class CourseGroupDetailSerializer(CourseGroupListSerializer):
 class CourseGroupCreateSerializer(serializers.ModelSerializer):
     """Validation for creating a new group."""
 
+    course_id = serializers.UUIDField(required=False)
     name = serializers.CharField(max_length=255)
     description = serializers.CharField(required=False, allow_blank=True, default="")
     category = serializers.CharField(max_length=150, required=False, allow_blank=True, default="General")
 
     class Meta:
         model = CourseGroup
-        fields = ["name", "description", "category"]
+        fields = ["course_id", "name", "description", "category"]
 
 
 class CourseGroupMessageCreateSerializer(serializers.Serializer):

@@ -108,6 +108,17 @@ class CohortQuizSchedule(BaseModel):
         db_index=True,
         help_text=_("Locks the quiz temporarily for this cohort."),
     )
+    grades_published = models.BooleanField(
+        _("Grades Published"),
+        default=False,
+        db_index=True,
+        help_text=_("Controls whether students in this cohort can view their evaluation and scores."),
+    )
+    release_grades_immediately = models.BooleanField(
+        _("Release Grades Immediately"),
+        default=False,
+        help_text=_("If True, students view grades immediately after taking the quiz. If False, tutor manually publishes grades."),
+    )
     open_date = models.DateTimeField(
         _("Open Date"),
         null=True,
