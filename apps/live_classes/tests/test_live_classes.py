@@ -258,6 +258,49 @@ class LiveClassSchedulingTests(LiveClassesBaseTestCase):
         self.assertIsNotNone(live_class.actual_ended_at)
         self.assertEqual(live_class.recording_url, "https://drive.google.com/file/d/rec123/view")
 
+    def test_tutor_can_add_recording_directly(self):
+        """Tutor can use Add Recording directly with Google link, date, and time."""
+        self.client.force_authenticate(user=self.tutor)
+        url = reverse("api_v1:live_classes:class-recording-create")
+        data = {
+            "title": "Road Signs & Markings Recap",
+            "date": str(date.today()),
+            "start_time": "14:00",
+            "end_time": "15:30",
+            "google_link": "https://drive.google.com/file/d/test-recording-direct/view",
+            "cohort": str(self.cohort.id),
+        }
+        res = self.client.post(url, data, format="json")
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        created_class = LiveClass.objects.get(title="Road Signs & Markings Recap")
+        self.assertEqual(created_class.recording_url, "https://drive.google.com/file/d/test-recording-direct/view")
+        self.assertEqual(created_class.status, LiveClassStatus.COMPLETED)
+
+    def test_tutor_can_attach_recording_to_existing_session(self):
+        """Tutor can attach a Google link to an awaiting session via direct recording view."""
+        session = LiveClassService.schedule_class(
+            title="Roundabout Navigation Workshop",
+            scheduled_date=date.today(),
+            start_time=time(16, 0),
+            end_time=time(17, 30),
+            google_meet_url="https://meet.google.com/awaiting-meet-url",
+            cohort=self.cohort,
+            tutor=self.tutor,
+            is_published=True,
+        )
+
+        self.client.force_authenticate(user=self.tutor)
+        url = reverse("api_v1:live_classes:class-recording-create")
+        data = {
+            "session_id": str(session.id),
+            "google_link": "https://drive.google.com/file/d/attached-session-rec/view",
+        }
+        res = self.client.post(url, data, format="json")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        session.refresh_from_db()
+        self.assertEqual(session.recording_url, "https://drive.google.com/file/d/attached-session-rec/view")
+        self.assertEqual(session.status, LiveClassStatus.COMPLETED)
+
     def test_reschedule_class_by_training_admin(self):
         live_class = LiveClassService.schedule_class(
             title="Speed Limits & Overtaking Rules",

@@ -15,4 +15,3 @@ class AttendanceStatus(models.TextChoices):
     LATE = "LATE", _("Late")
     ABSENT = "ABSENT", _("Absent")
     EXCUSED = "EXCUSED", _("Excused")
-    WATCHED_RECORDING = "WATCHED_RECORDING", _("Watched Recording")

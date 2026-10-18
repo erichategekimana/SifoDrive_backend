@@ -160,6 +160,7 @@ from .views import (
     AllCourseGroupsListView,
     CourseGroupDetailView,
     CourseGroupJoinToggleView,
+    CourseGroupMemberManageView,
     CourseGroupMessageCreateView,
 )
 
@@ -298,6 +299,8 @@ urlpatterns = [
     path("groups/",                                                     AllCourseGroupsListView.as_view(),           name="all-course-groups-list"),
     path("groups/<uuid:group_id>/",                                     CourseGroupDetailView.as_view(),             name="course-group-detail"),
     path("groups/<uuid:group_id>/toggle-join/",                         CourseGroupJoinToggleView.as_view(),         name="course-group-toggle-join"),
+    path("groups/<uuid:group_id>/members/",                             CourseGroupMemberManageView.as_view(),       name="course-group-members"),
+    path("groups/<uuid:group_id>/members/<uuid:user_id>/",               CourseGroupMemberManageView.as_view(),       name="course-group-member-remove"),
     path("groups/<uuid:group_id>/messages/",                            CourseGroupMessageCreateView.as_view(),      name="course-group-message-create"),
 ]
 

@@ -142,8 +142,7 @@ class ClassAttendanceAdmin(admin.ModelAdmin):
             AttendanceStatus.PRESENT: "#16a34a",
             AttendanceStatus.LATE: "#d97706",
             AttendanceStatus.ABSENT: "#dc2626",
-            AttendanceStatus.EXCUSED: "#6b7280",
-            AttendanceStatus.WATCHED_RECORDING: "#2563eb",
+            AttendanceStatus.EXCUSED: "#0284c7",
         }
         color = colors.get(obj.status, "#6b7280")
         return format_html(

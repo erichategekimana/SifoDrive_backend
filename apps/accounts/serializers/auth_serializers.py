@@ -28,6 +28,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token["full_name"] = user.full_name
         token["status"] = user.status
         token["student_id"] = user.student_id
+        if user.profile_photo:
+            token["profile_photo"] = user.profile_photo.url
         # Consent state — drives frontend modal flows
         token["terms_accepted"] = user.terms_of_service_accepted
         token["privacy_accepted"] = user.privacy_policy_accepted

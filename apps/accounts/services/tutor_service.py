@@ -83,6 +83,7 @@ class TutorService:
                 "exam_eligible": eligibility.get("eligible", False),
                 "attendance_rate": eligibility.get("criteria", {}).get("attendance_rate", 0),
                 "module_completion": eligibility.get("criteria", {}).get("module_completion", 0),
+                "profile_photo": student.profile_photo.url if student.profile_photo else None,
             })
         return results
 

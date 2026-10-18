@@ -13,6 +13,7 @@ from apps.live_classes.views.attendance_views import (
 from apps.live_classes.views.class_views import (
     LiveClassCancelView,
     LiveClassDetailView,
+    LiveClassDirectRecordingCreateView,
     LiveClassEndView,
     LiveClassListCreateView,
     LiveClassRecordingView,
@@ -45,6 +46,7 @@ __all__ = [
     "LiveClassScheduleDetailView",
     "LiveClassRecurringScheduleView",
     "LiveClassDetailView",
+    "LiveClassDirectRecordingCreateView",
     "LiveClassRecordingView",
     "LiveClassRescheduleView",
     "LiveClassStartView",

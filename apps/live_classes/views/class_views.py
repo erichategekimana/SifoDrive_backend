@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, time
 import logging
 
 from django.db.models import Q
@@ -15,7 +15,7 @@ from apps.core.permissions import (
     IsTrainingAdminOrAbove,
     IsTutorOrTrainingAdmin,
 )
-from apps.live_classes.models import LiveClass, LiveClassSchedule
+from apps.live_classes.models import Cohort, LiveClass, LiveClassSchedule
 from apps.live_classes.models.choices import LiveClassStatus
 from apps.live_classes.serializers import (
     LiveClassCreateUpdateSerializer,
@@ -428,5 +428,151 @@ class LiveClassRecordingView(SuccessResponseMixin, APIView):
         return self.success_response(
             data=LiveClassDetailSerializer(live_class).data,
             message="Class recording posted successfully.",
+        )
+
+
+class LiveClassDirectRecordingCreateView(SuccessResponseMixin, APIView):
+    """
+    POST /api/v1/live-classes/recordings/
+    Directly add or publish a recording for a live class.
+    Tutors and Training Admins can specify:
+      - session_id (optional, updates existing session)
+      - title
+      - scheduled_date / date
+      - start_time / end_time
+      - recording_url / google_link (Google Drive / Meet URL)
+      - cohort_id / cohort (optional)
+      - notes (optional)
+    """
+
+    permission_classes = [IsTutorOrTrainingAdmin]
+
+    def post(self, request):
+        user = request.user
+        class_id = request.data.get("session_id") or request.data.get("class_id")
+        recording_url = (
+            request.data.get("recording_url", "").strip()
+            or request.data.get("google_link", "").strip()
+        )
+
+        if not recording_url:
+            return Response(
+                {"detail": "Google recording link is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        scheduled_date_str = request.data.get("scheduled_date") or request.data.get("date")
+        if not scheduled_date_str:
+            scheduled_date = date.today()
+        else:
+            try:
+                scheduled_date = date.fromisoformat(str(scheduled_date_str).strip())
+            except ValueError:
+                scheduled_date = date.today()
+
+        # If class_id was not explicitly passed, check if an awaiting session exists on this date
+        if not class_id:
+            cohort_id = request.data.get("cohort") or request.data.get("cohort_id")
+            awaiting_query = LiveClass.objects.filter(
+                scheduled_date=scheduled_date,
+                recording_url="",
+            )
+            if cohort_id:
+                awaiting_query = awaiting_query.filter(cohort_id=cohort_id)
+            elif user.role == UserRole.TUTOR:
+                tutor_cohort_ids = list(user.assigned_cohorts.filter(is_active=True).values_list("id", flat=True))
+                awaiting_query = awaiting_query.filter(Q(tutor=user) | Q(cohort_id__in=tutor_cohort_ids))
+
+            matched_session = awaiting_query.first()
+            if matched_session:
+                class_id = str(matched_session.id)
+
+        # 1. If explicit session_id provided or matched on date, attach to that session
+        if class_id:
+            try:
+                live_class = LiveClass.objects.get(pk=class_id)
+                live_class.recording_url = recording_url
+                if request.data.get("title"):
+                    live_class.title = request.data["title"].strip()
+                if request.data.get("notes"):
+                    live_class.notes = request.data["notes"].strip()
+                live_class.status = LiveClassStatus.COMPLETED
+                if not live_class.actual_ended_at:
+                    live_class.actual_ended_at = timezone.now()
+                live_class.save()
+                return self.success_response(
+                    data=LiveClassDetailSerializer(live_class).data,
+                    message="Class recording published successfully.",
+                    status_code=200,
+                )
+            except LiveClass.DoesNotExist:
+                pass
+
+        title = request.data.get("title", "").strip() or f"Class Recording - {scheduled_date.strftime('%b %d, %Y')}"
+
+        start_time_str = request.data.get("start_time") or "14:00"
+        end_time_str = request.data.get("end_time") or "15:30"
+
+        try:
+            start_time = time.fromisoformat(str(start_time_str)[:5])
+        except ValueError:
+            start_time = time(14, 0)
+
+        try:
+            end_time = time.fromisoformat(str(end_time_str)[:5])
+        except ValueError:
+            end_time = time(15, 30)
+
+        cohort_id = request.data.get("cohort") or request.data.get("cohort_id")
+        cohort = None
+        if cohort_id:
+            cohort = Cohort.objects.filter(id=cohort_id).first()
+        elif user.role == UserRole.TUTOR:
+            cohort = user.assigned_cohorts.filter(is_active=True).first()
+
+        tutor = user if user.role == UserRole.TUTOR else None
+
+        master_schedule = LiveClassSchedule.objects.create(
+            title=title,
+            topic=request.data.get("topic", "").strip(),
+            cohort=cohort,
+            tutor=tutor,
+            schedule_mode="SINGLE",
+            days_of_week=[scheduled_date.weekday()],
+            start_time=start_time,
+            end_time=end_time,
+            start_date=scheduled_date,
+            end_date=scheduled_date,
+            period_months=1,
+            period_unit="months",
+            google_meet_url=recording_url,
+            is_published=True,
+            notes=request.data.get("notes", "").strip(),
+            created_by=user,
+        )
+
+        live_class = LiveClass.objects.create(
+            title=title,
+            topic=request.data.get("topic", "").strip(),
+            cohort=cohort,
+            tutor=tutor,
+            schedule=master_schedule,
+            scheduled_date=scheduled_date,
+            start_time=start_time,
+            end_time=end_time,
+            google_meet_url=recording_url,
+            recording_url=recording_url,
+            status=LiveClassStatus.COMPLETED,
+            is_published=True,
+            notes=request.data.get("notes", "").strip(),
+            actual_started_at=timezone.now(),
+            actual_ended_at=timezone.now(),
+            created_by=user,
+        )
+
+        return self.success_response(
+            data=LiveClassDetailSerializer(live_class).data,
+            message="Class recording published successfully.",
+            status_code=201,
         )
 

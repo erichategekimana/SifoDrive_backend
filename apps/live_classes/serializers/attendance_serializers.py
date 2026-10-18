@@ -7,6 +7,7 @@ class ClassAttendanceSerializer(serializers.ModelSerializer):
     """Individual student attendance record."""
     student_name = serializers.CharField(source="student.get_full_name", read_only=True)
     student_phone = serializers.CharField(source="student.phone_number", read_only=True)
+    student_photo = serializers.SerializerMethodField(read_only=True)
     marked_by_name = serializers.CharField(source="marked_by.get_full_name", read_only=True)
     class_title = serializers.CharField(source="live_class.title", read_only=True)
     scheduled_at = serializers.DateTimeField(source="live_class.scheduled_at", read_only=True)
@@ -21,6 +22,7 @@ class ClassAttendanceSerializer(serializers.ModelSerializer):
             "student",
             "student_name",
             "student_phone",
+            "student_photo",
             "status",
             "joined_at",
             "minutes_attended",
@@ -41,6 +43,25 @@ class ClassAttendanceSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+    def get_student_photo(self, obj):
+        if obj.student.profile_photo:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(obj.student.profile_photo.url)
+            return obj.student.profile_photo.url
+        return None
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # If viewed in student context, EXCUSED maps to PRESENT on their view
+        # while tutors and admins can see that it was an excuse.
+        if self.context.get("for_student") or (
+            self.context.get("request") and getattr(self.context["request"].user, "role", None) == "STUDENT"
+        ):
+            if data.get("status") == AttendanceStatus.EXCUSED:
+                data["status"] = AttendanceStatus.PRESENT
+        return data
 
 
 class BatchAttendanceItemSerializer(serializers.Serializer):

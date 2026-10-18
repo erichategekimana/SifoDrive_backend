@@ -19,6 +19,7 @@ from .views import (
     CohortSetStatusView,
     LiveClassCancelView,
     LiveClassDetailView,
+    LiveClassDirectRecordingCreateView,
     LiveClassEndView,
     LiveClassListCreateView,
     LiveClassRecordingView,
@@ -54,6 +55,7 @@ urlpatterns = [
     path("classes/<uuid:pk>/start/", LiveClassStartView.as_view(), name="class-start"),
     path("classes/<uuid:pk>/end/", LiveClassEndView.as_view(), name="class-end"),
     path("classes/<uuid:pk>/recording/", LiveClassRecordingView.as_view(), name="class-recording"),
+    path("recordings/", LiveClassDirectRecordingCreateView.as_view(), name="class-recording-create"),
     path("classes/<uuid:pk>/cancel/", LiveClassCancelView.as_view(), name="class-cancel"),
 
     # Class Resources

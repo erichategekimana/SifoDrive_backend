@@ -118,6 +118,19 @@ class LiveClass(BaseModel):
             self.scheduled_date == today and self.end_time < datetime.now().time()
         )
 
+    @property
+    def is_live_now(self) -> bool:
+        today = date.today()
+        now_time = datetime.now().time()
+        return self.scheduled_date == today and self.start_time <= now_time <= self.end_time
+
+    @property
+    def is_future(self) -> bool:
+        today = date.today()
+        return self.scheduled_date > today or (
+            self.scheduled_date == today and self.start_time > datetime.now().time()
+        )
+
     def start_session(self) -> None:
         self.status = LiveClassStatus.IN_PROGRESS
         self.actual_started_at = timezone.now()

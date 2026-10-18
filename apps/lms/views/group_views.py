@@ -18,8 +18,10 @@ from apps.lms.serializers.group_serializers import (
     CourseGroupCreateSerializer,
     CourseGroupDetailSerializer,
     CourseGroupListSerializer,
+    CourseGroupMemberAddSerializer,
     CourseGroupMessageCreateSerializer,
     CourseGroupMessageSerializer,
+    CourseGroupUpdateSerializer,
     CourseRosterUserSerializer,
 )
 
@@ -35,9 +37,9 @@ class CourseRosterView(SuccessResponseMixin, APIView):
     def get(self, request, course_id, *args, **kwargs):
         course = get_object_or_404(Course, id=course_id, is_deleted=False)
 
-        # 1. Fetch instructors: Assigned tutors or tutors in the system
+        # 1. Fetch instructors: Only tutors (exclude system/training admins)
         instructor_qs = User.objects.filter(
-            role__in=["TUTOR", "SYSTEM_ADMIN", "TRAINING_ADMIN"],
+            role="TUTOR",
             is_active=True,
         ).order_by("first_name", "last_name")
 
@@ -48,7 +50,7 @@ class CourseRosterView(SuccessResponseMixin, APIView):
         ).order_by("first_name", "last_name")
 
         # Combine instructors first, then students
-        users = list(instructor_qs[:10]) + list(student_qs[:30])
+        users = list(instructor_qs[:50]) + list(student_qs[:200])
 
         serializer = CourseRosterUserSerializer(users, many=True, context={"request": request})
         return self.success_response(data=serializer.data)
@@ -121,6 +123,7 @@ class CourseGroupListCreateView(SuccessResponseMixin, APIView):
             name=validated["name"].strip(),
             description=validated.get("description", "").strip(),
             category=validated.get("category", "General").strip() or "General",
+            allow_students_to_add_members=validated.get("allow_students_to_add_members", False),
         )
         group.members.add(request.user)
 
@@ -141,8 +144,10 @@ class CourseGroupListCreateView(SuccessResponseMixin, APIView):
 
 class CourseGroupDetailView(SuccessResponseMixin, APIView):
     """
-    GET /api/v1/lms/groups/<group_id>/
-         Retrieve group details, member roster, and full chat message history.
+    GET   /api/v1/lms/groups/<group_id>/
+          Retrieve group details, member roster, and full chat message history.
+    PATCH /api/v1/lms/groups/<group_id>/
+          Update group settings (name, description, category, allow_students_to_add_members).
     """
 
     permission_classes = [IsAuthenticated]
@@ -156,6 +161,160 @@ class CourseGroupDetailView(SuccessResponseMixin, APIView):
 
         serializer = CourseGroupDetailSerializer(group, context={"request": request})
         return self.success_response(data=serializer.data)
+
+    def patch(self, request, group_id, *args, **kwargs):
+        group = get_object_or_404(
+            CourseGroup.objects.select_related("created_by", "course").prefetch_related("members"),
+            id=group_id,
+            is_deleted=False,
+        )
+        user = request.user
+        is_tutor_or_admin = getattr(user, "role", None) in [
+            "TUTOR", "SYSTEM_ADMIN", "TRAINING_ADMIN", "BRANCH_ADMIN", "STAFF"
+        ]
+        is_creator = group.created_by_id == user.id
+
+        if not (is_tutor_or_admin or is_creator):
+            return self.error_response(
+                code="PERMISSION_DENIED",
+                message="You do not have permission to modify settings for this study group.",
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = CourseGroupUpdateSerializer(group, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return self.validation_error(serializer.errors)
+
+        serializer.save()
+        output = CourseGroupDetailSerializer(group, context={"request": request})
+        return self.success_response(
+            data=output.data,
+            message="Study group updated successfully.",
+        )
+
+
+class CourseGroupMemberManageView(SuccessResponseMixin, APIView):
+    """
+    POST   /api/v1/lms/groups/<group_id>/members/
+           Add one or more members to the study group.
+           Authorized if user is a Tutor/Admin, group creator, or if the group
+           has allow_students_to_add_members=True and caller is already a member.
+    DELETE /api/v1/lms/groups/<group_id>/members/<user_id>/
+           Remove a member from the study group.
+           Authorized for Tutors/Admins, group creator, or the user removing themselves.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, group_id, *args, **kwargs):
+        group = get_object_or_404(
+            CourseGroup.objects.select_related("course", "created_by").prefetch_related("members"),
+            id=group_id,
+            is_deleted=False,
+        )
+        user = request.user
+        is_tutor_or_admin = getattr(user, "role", None) in [
+            "TUTOR", "SYSTEM_ADMIN", "TRAINING_ADMIN", "BRANCH_ADMIN", "STAFF"
+        ]
+        is_creator = group.created_by_id == user.id
+        is_member = group.members.filter(id=user.id).exists()
+
+        creator = group.created_by
+        creator_is_student = (
+            creator
+            and getattr(creator, "role", None) not in [
+                "TUTOR", "SYSTEM_ADMIN", "TRAINING_ADMIN", "BRANCH_ADMIN", "STAFF"
+            ]
+        )
+        # If group was created by student, any other member can add another member
+        is_student_group_member = creator_is_student and is_member
+        # If tutor provided that access to others
+        is_authorized_by_tutor = group.allow_students_to_add_members and is_member
+
+        if not (is_tutor_or_admin or is_creator or is_student_group_member or is_authorized_by_tutor):
+            return self.error_response(
+                code="PERMISSION_DENIED",
+                message="You do not have permission to add members to this study group. Only instructors or authorized group members can add peers.",
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = CourseGroupMemberAddSerializer(data=request.data)
+        if not serializer.is_valid():
+            return self.validation_error(serializer.errors)
+
+        user_ids = serializer.validated_data.get("user_ids") or []
+        single_user_id = serializer.validated_data.get("user_id")
+        if single_user_id:
+            user_ids.append(single_user_id)
+
+        target_users = list(User.objects.filter(id__in=user_ids, is_active=True))
+        if not target_users:
+            return self.error_response(
+                code="NOT_FOUND",
+                message="No valid users found to add.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        newly_added = []
+        for target in target_users:
+            if not group.members.filter(id=target.id).exists():
+                group.members.add(target)
+                newly_added.append(target)
+
+        if newly_added:
+            names = ", ".join([f"{u.first_name} {u.last_name}".strip() or u.email for u in newly_added])
+            actor_name = f"{user.first_name} {user.last_name}".strip() or user.email
+            CourseGroupMessage.objects.create(
+                group=group,
+                sender=user,
+                content=f"👋 {actor_name} added {names} to the study group.",
+            )
+
+        detail_serializer = CourseGroupDetailSerializer(group, context={"request": request})
+        return self.success_response(
+            data=detail_serializer.data,
+            message=f"Added {len(newly_added)} member(s) to the group successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+
+    def delete(self, request, group_id, user_id=None, *args, **kwargs):
+        group = get_object_or_404(
+            CourseGroup.objects.prefetch_related("members"),
+            id=group_id,
+            is_deleted=False,
+        )
+        user = request.user
+        target_user = get_object_or_404(User, id=user_id, is_active=True)
+
+        is_self = str(user.id) == str(user_id)
+        is_tutor_or_admin = getattr(user, "role", None) in [
+            "TUTOR", "SYSTEM_ADMIN", "TRAINING_ADMIN", "BRANCH_ADMIN", "STAFF"
+        ]
+        is_creator = group.created_by_id == user.id
+
+        if not (is_self or is_tutor_or_admin or is_creator):
+            return self.error_response(
+                code="PERMISSION_DENIED",
+                message="You do not have permission to remove this member.",
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
+        if group.members.filter(id=target_user.id).exists():
+            group.members.remove(target_user)
+            actor_name = f"{user.first_name} {user.last_name}".strip() or user.email
+            target_name = f"{target_user.first_name} {target_user.last_name}".strip() or target_user.email
+            action_desc = "left the group." if is_self else f"was removed from the group by {actor_name}."
+            CourseGroupMessage.objects.create(
+                group=group,
+                sender=user,
+                content=f"ℹ️ {target_name} {action_desc}",
+            )
+
+        detail_serializer = CourseGroupDetailSerializer(group, context={"request": request})
+        return self.success_response(
+            data=detail_serializer.data,
+            message="Member removed successfully.",
+        )
 
 
 class CourseGroupJoinToggleView(SuccessResponseMixin, APIView):
@@ -323,6 +482,7 @@ class AllCourseGroupsListView(SuccessResponseMixin, APIView):
             name=validated["name"].strip(),
             description=validated.get("description", "").strip(),
             category=validated.get("category", "General").strip() or "General",
+            allow_students_to_add_members=validated.get("allow_students_to_add_members", False),
         )
         group.members.add(request.user)
 

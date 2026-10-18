@@ -66,3 +66,4 @@ class TutorAssignedStudentSerializer(serializers.Serializer):
     module_completion = serializers.FloatField()
     cohort_name = serializers.CharField(allow_null=True, required=False)
     cohort_identifier = serializers.CharField(allow_null=True, required=False)
+    profile_photo = serializers.CharField(allow_null=True, required=False)

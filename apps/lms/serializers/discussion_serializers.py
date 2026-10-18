@@ -12,6 +12,7 @@ from apps.lms.models import DiscussionTopic, DiscussionReply
 class DiscussionReplySerializer(serializers.ModelSerializer):
     author_name = serializers.SerializerMethodField()
     author_role = serializers.CharField(source="author.role", read_only=True)
+    author_photo = serializers.SerializerMethodField()
     is_author_tutor = serializers.SerializerMethodField()
     parent_id = serializers.UUIDField(source="parent.id", read_only=True, allow_null=True)
     date = serializers.SerializerMethodField()
@@ -26,6 +27,7 @@ class DiscussionReplySerializer(serializers.ModelSerializer):
             "author_id",
             "author_name",
             "author_role",
+            "author_photo",
             "is_author_tutor",
             "parent_id",
             "content",
@@ -41,6 +43,14 @@ class DiscussionReplySerializer(serializers.ModelSerializer):
             return "Participant"
         full = f"{obj.author.first_name} {obj.author.last_name}".strip()
         return full or obj.author.phone_number or "Participant"
+
+    def get_author_photo(self, obj) -> str | None:
+        if obj.author and obj.author.profile_photo:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(obj.author.profile_photo.url)
+            return obj.author.profile_photo.url
+        return None
 
     def get_is_author_tutor(self, obj) -> bool:
         if not obj.author:
@@ -67,6 +77,7 @@ class DiscussionReplySerializer(serializers.ModelSerializer):
 class DiscussionTopicSerializer(serializers.ModelSerializer):
     author_name = serializers.SerializerMethodField()
     author_role = serializers.CharField(source="author.role", read_only=True)
+    author_photo = serializers.SerializerMethodField()
     is_author_tutor = serializers.SerializerMethodField()
     replies_count = serializers.SerializerMethodField()
     likes_count = serializers.SerializerMethodField()
@@ -82,6 +93,7 @@ class DiscussionTopicSerializer(serializers.ModelSerializer):
             "author_id",
             "author_name",
             "author_role",
+            "author_photo",
             "is_author_tutor",
             "title",
             "content",
@@ -101,6 +113,14 @@ class DiscussionTopicSerializer(serializers.ModelSerializer):
             return "Participant"
         full = f"{obj.author.first_name} {obj.author.last_name}".strip()
         return full or obj.author.phone_number or "Participant"
+
+    def get_author_photo(self, obj) -> str | None:
+        if obj.author and obj.author.profile_photo:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(obj.author.profile_photo.url)
+            return obj.author.profile_photo.url
+        return None
 
     def get_is_author_tutor(self, obj) -> bool:
         if not obj.author:

@@ -103,6 +103,7 @@ class TutorCohortStudentsListView(SuccessResponseMixin, APIView):
                 "phone_number": s.phone_number,
                 "email": s.email or "",
                 "category": getattr(s, "station_quota", None) or "General Road Rules",
+                "profile_photo": request.build_absolute_uri(s.profile_photo.url) if s.profile_photo else None,
                 "enrolled_at": s.created_at,
             }
             for s in students

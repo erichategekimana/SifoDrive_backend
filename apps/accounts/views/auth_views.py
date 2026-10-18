@@ -39,9 +39,12 @@ from apps.accounts.services import AuthService, StudentService
 logger = logging.getLogger(__name__)
 
 
-def _build_token_response(user) -> dict:
+def _build_token_response(user, request=None) -> dict:
     """Create a JWT pair + user summary dict for all auth success responses."""
     refresh = RefreshToken.for_user(user)
+    photo_url = None
+    if user.profile_photo:
+        photo_url = request.build_absolute_uri(user.profile_photo.url) if request else user.profile_photo.url
     return {
         "access": str(refresh.access_token),
         "refresh": str(refresh),
@@ -51,6 +54,7 @@ def _build_token_response(user) -> dict:
             "full_name": user.full_name,
             "status": user.status,
             "student_id": user.student_id,
+            "profile_photo": photo_url,
             "terms_accepted": user.terms_of_service_accepted,
             "privacy_accepted": user.privacy_policy_accepted,
         },
@@ -119,7 +123,7 @@ class GuestUpgradeView(SuccessResponseMixin, APIView):
         user.accept_privacy_policy()
         user = StudentService.upgrade_guest_to_student(user)
         return self.success_response(
-            data=_build_token_response(user),
+            data=_build_token_response(user, request=request),
             message=(
                 "Your account has been upgraded to Student. "
                 "Please complete your enrollment (payment, profile details)."
@@ -164,7 +168,7 @@ class LoginView(SuccessResponseMixin, APIView):
                 message=f"Two-factor authentication code sent via {method.upper()}."
             )
 
-        return self.success_response(data=_build_token_response(user), message="Login successful.")
+        return self.success_response(data=_build_token_response(user, request=request), message="Login successful.")
 
 
 # ===========================================================================
@@ -200,7 +204,7 @@ class OTPVerifyView(SuccessResponseMixin, APIView):
             purpose=serializer.validated_data["purpose"],
         )
         return self.success_response(
-            data=_build_token_response(user),
+            data=_build_token_response(user, request=request),
             message="Phone verified successfully.",
         )
 

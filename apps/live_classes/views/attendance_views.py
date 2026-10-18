@@ -24,11 +24,17 @@ class ClassAttendanceListView(SuccessResponseMixin, generics.ListAPIView):
 
     permission_classes = [IsTutorOrTrainingAdmin]
     serializer_class = ClassAttendanceSerializer
+    pagination_class = None
 
     def get_queryset(self):
         return ClassAttendance.objects.filter(
             live_class_id=self.kwargs["pk"]
         ).select_related("student", "marked_by")
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        return self.success_response(data=serializer.data)
 
 
 class ClassAttendanceBatchView(SuccessResponseMixin, APIView):
@@ -72,9 +78,9 @@ class MyAttendanceSummaryView(SuccessResponseMixin, APIView):
     permission_classes = [IsStudent]
 
     def get(self, request):
-        summary = AttendanceService.get_student_attendance_summary(request.user)
+        summary = AttendanceService.get_student_attendance_summary(request.user, for_student_view=True)
         records = ClassAttendance.objects.filter(student=request.user).select_related("live_class")
-        serializer = ClassAttendanceSerializer(records, many=True)
+        serializer = ClassAttendanceSerializer(records, many=True, context={"request": request, "for_student": True})
         return self.success_response(data={
             "summary": summary,
             "attendances": serializer.data,
@@ -84,6 +90,7 @@ class MyAttendanceSummaryView(SuccessResponseMixin, APIView):
 class StudentAttendanceDetailView(SuccessResponseMixin, APIView):
     """
     GET: Tutor or Admin view of a student's attendance records and exam readiness.
+    Preserves raw EXCUSED status so tutors and admins can audit that it was an excuse.
     """
 
     permission_classes = [IsTutorOrTrainingAdmin]
@@ -94,13 +101,14 @@ class StudentAttendanceDetailView(SuccessResponseMixin, APIView):
         except User.DoesNotExist:
             return Response({"detail": "Student not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        summary = AttendanceService.get_student_attendance_summary(student)
+        summary = AttendanceService.get_student_attendance_summary(student, for_student_view=False)
         records = ClassAttendance.objects.filter(student=student).select_related("live_class")
-        serializer = ClassAttendanceSerializer(records, many=True)
+        serializer = ClassAttendanceSerializer(records, many=True, context={"request": request, "for_student": False})
         return self.success_response(data={
             "student_id": str(student.id),
             "student_name": student.get_full_name(),
             "phone_number": student.phone_number,
+            "profile_photo": request.build_absolute_uri(student.profile_photo.url) if student.profile_photo else None,
             "summary": summary,
             "attendances": serializer.data,
         })

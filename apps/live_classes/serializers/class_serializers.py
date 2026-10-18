@@ -51,6 +51,18 @@ class LiveClassListSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        current_status = data.get("status")
+        if current_status not in ["CANCELLED", "RESCHEDULED"]:
+            if instance.is_past:
+                data["status"] = "COMPLETED"
+            elif getattr(instance, "is_live_now", False):
+                data["status"] = "IN_PROGRESS"
+            else:
+                data["status"] = "SCHEDULED"
+        return data
+
 
 class LiveClassDetailSerializer(serializers.ModelSerializer):
     """Detailed view including curriculum link, notes, and attached resources."""
@@ -94,6 +106,18 @@ class LiveClassDetailSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = fields
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        current_status = data.get("status")
+        if current_status not in ["CANCELLED", "RESCHEDULED"]:
+            if instance.is_past:
+                data["status"] = "COMPLETED"
+            elif getattr(instance, "is_live_now", False):
+                data["status"] = "IN_PROGRESS"
+            else:
+                data["status"] = "SCHEDULED"
+        return data
 
 
 class LiveClassCreateUpdateSerializer(serializers.ModelSerializer):

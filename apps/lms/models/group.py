@@ -38,6 +38,11 @@ class CourseGroup(BaseModel):
         blank=True,
         verbose_name=_("Members"),
     )
+    allow_students_to_add_members = models.BooleanField(
+        _("Allow Students to Add Members"),
+        default=False,
+        help_text=_("When enabled, student members can add other enrolled classmates to this group."),
+    )
 
     class Meta:
         verbose_name = _("Course Group")

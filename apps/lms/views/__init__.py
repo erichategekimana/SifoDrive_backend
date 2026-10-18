@@ -139,6 +139,7 @@ from apps.lms.views.group_views import (  # noqa: F401
     AllCourseGroupsListView,
     CourseGroupDetailView,
     CourseGroupJoinToggleView,
+    CourseGroupMemberManageView,
     CourseGroupMessageCreateView,
 )
 
