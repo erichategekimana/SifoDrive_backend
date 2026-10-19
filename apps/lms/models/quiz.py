@@ -13,7 +13,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.models import BaseModel, OrderedModel
-from apps.lms.models.choices import CorrectOption, Difficulty, QuizDomain, QuizType
+from apps.lms.models.choices import CorrectOption, QuizDomain, QuizType
 from apps.lms.models.content import Module, RoadSign
 from apps.lms.models.curriculum import Course
 
@@ -42,15 +42,9 @@ class QuizQuestion(BaseModel):
     domain = models.CharField(
         _("Domain"), max_length=20, choices=QuizDomain.choices, db_index=True
     )
-    difficulty = models.CharField(
-        _("Difficulty"),
-        max_length=10,
-        choices=Difficulty.choices,
-        default=Difficulty.MEDIUM,
-        db_index=True,
-    )
     question_text = models.TextField(_("Question (English)"), blank=True)
     question_text_kinyarwanda = models.TextField(_("Question (Kinyarwanda)"), blank=True)
+    question_text_french = models.TextField(_("Question (French)"), blank=True, default="")
 
     option_a = models.CharField(_("Option A (English)"), max_length=500, blank=True)
     option_b = models.CharField(_("Option B (English)"), max_length=500, blank=True)
@@ -60,6 +54,10 @@ class QuizQuestion(BaseModel):
     option_b_kinyarwanda = models.CharField(_("Option B (Kinyarwanda)"), max_length=500, blank=True)
     option_c_kinyarwanda = models.CharField(_("Option C (Kinyarwanda)"), max_length=500, blank=True)
     option_d_kinyarwanda = models.CharField(_("Option D (Kinyarwanda)"), max_length=500, blank=True)
+    option_a_french = models.CharField(_("Option A (French)"), max_length=500, blank=True, default="")
+    option_b_french = models.CharField(_("Option B (French)"), max_length=500, blank=True, default="")
+    option_c_french = models.CharField(_("Option C (French)"), max_length=500, blank=True, default="")
+    option_d_french = models.CharField(_("Option D (French)"), max_length=500, blank=True, default="")
 
     correct_option = models.CharField(
         _("Correct Option"), max_length=1, choices=CorrectOption.choices
@@ -73,6 +71,12 @@ class QuizQuestion(BaseModel):
         _("Explanation (Kinyarwanda)"),
         blank=True,
         help_text=_("Ibisobanuro mu Kinyarwanda by'impamvu igisubizo ari cyo cy'ukuri."),
+    )
+    explanation_french = models.TextField(
+        _("Explanation (French)"),
+        blank=True,
+        default="",
+        help_text=_("Explication en français de la raison pour laquelle la réponse est correcte."),
     )
     image = models.ImageField(
         _("Diagram / Image"),
@@ -124,10 +128,10 @@ class QuizQuestion(BaseModel):
     class Meta(BaseModel.Meta):
         verbose_name = _("Quiz Question")
         verbose_name_plural = _("Quiz Questions")
-        ordering = ["domain", "difficulty"]
+        ordering = ["domain", "question_number"]
 
     def __str__(self) -> str:
-        return f"[{self.domain}/{self.difficulty}] {self.question_text[:80]}…"
+        return f"[{self.domain}] Q{self.question_number}: {self.question_text[:80]}…"
 
     @property
     def correct_text(self) -> str:
@@ -183,9 +187,15 @@ class Quiz(BaseModel):
     title_kinyarwanda = models.CharField(
         _("Title (Kinyarwanda)"), max_length=200, blank=True, default=""
     )
+    title_french = models.CharField(
+        _("Title (French)"), max_length=200, blank=True, default=""
+    )
     description = models.TextField(_("Description (English)"), blank=True, default="")
     description_kinyarwanda = models.TextField(
         _("Description (Kinyarwanda)"), blank=True, default=""
+    )
+    description_french = models.TextField(
+        _("Description (French)"), blank=True, default=""
     )
     open_date = models.DateTimeField(
         _("Open Date"),
@@ -246,12 +256,15 @@ class Quiz(BaseModel):
     rubric_kinyarwanda = models.TextField(
         _("Grading Rubric & Guidelines (Kinyarwanda)"), blank=True, default=""
     )
+    rubric_french = models.TextField(
+        _("Grading Rubric & Guidelines (French)"), blank=True, default=""
+    )
     max_attempts = models.PositiveSmallIntegerField(
         _("Maximum Attempts"),
         default=1,
         help_text=_("Number of attempts permitted (0 for unlimited)."),
     )
-    shuffle_questions = models.BooleanField(_("Shuffle Questions"), default=False)
+    shuffle_questions = models.BooleanField(_("Shuffle Questions"), default=True)
     is_published = models.BooleanField(_("Published"), default=False, db_index=True)
     release_grades_immediately = models.BooleanField(
         _("Release Grades Immediately"),
@@ -364,6 +377,9 @@ class QuizQuestionItem(OrderedModel):
     question_text_kinyarwanda = models.TextField(
         _("Question (Kinyarwanda)"), blank=True, default=""
     )
+    question_text_french = models.TextField(
+        _("Question (French)"), blank=True, default=""
+    )
     option_a = models.CharField(_("Option A (English)"), max_length=500)
     option_b = models.CharField(_("Option B (English)"), max_length=500)
     option_c = models.CharField(_("Option C (English)"), max_length=500, blank=True, default="")
@@ -372,6 +388,10 @@ class QuizQuestionItem(OrderedModel):
     option_b_kinyarwanda = models.CharField(_("Option B (Kinyarwanda)"), max_length=500, blank=True, default="")
     option_c_kinyarwanda = models.CharField(_("Option C (Kinyarwanda)"), max_length=500, blank=True, default="")
     option_d_kinyarwanda = models.CharField(_("Option D (Kinyarwanda)"), max_length=500, blank=True, default="")
+    option_a_french = models.CharField(_("Option A (French)"), max_length=500, blank=True, default="")
+    option_b_french = models.CharField(_("Option B (French)"), max_length=500, blank=True, default="")
+    option_c_french = models.CharField(_("Option C (French)"), max_length=500, blank=True, default="")
+    option_d_french = models.CharField(_("Option D (French)"), max_length=500, blank=True, default="")
     correct_option = models.CharField(
         _("Correct Option"), max_length=1, choices=CorrectOption.choices, default=CorrectOption.A
     )
@@ -379,18 +399,14 @@ class QuizQuestionItem(OrderedModel):
     explanation_kinyarwanda = models.TextField(
         _("Explanation (Kinyarwanda)"), blank=True, default=""
     )
+    explanation_french = models.TextField(
+        _("Explanation (French)"), blank=True, default=""
+    )
     domain = models.CharField(
         _("Domain"),
         max_length=20,
         choices=QuizDomain.choices,
         default=QuizDomain.PRIORITY,
-        db_index=True,
-    )
-    difficulty = models.CharField(
-        _("Difficulty"),
-        max_length=10,
-        choices=Difficulty.choices,
-        default=Difficulty.MEDIUM,
         db_index=True,
     )
 

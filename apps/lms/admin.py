@@ -366,20 +366,20 @@ class RoadSignAdmin(admin.ModelAdmin):
 
 @admin.register(QuizQuestion)
 class QuizQuestionAdmin(admin.ModelAdmin):
-    list_display  = ["question_number", "short_question", "domain", "difficulty", "correct_option", "has_image", "is_active", "created_by"]
-    list_filter   = ["domain", "difficulty", "is_active"]
-    search_fields = ["question_number", "question_text_kinyarwanda", "question_text"]
-    ordering = ["question_number", "domain", "difficulty"]
+    list_display  = ["question_number", "short_question", "domain", "correct_option", "has_image", "is_active", "created_by"]
+    list_filter   = ["domain", "is_active"]
+    search_fields = ["question_number", "question_text_kinyarwanda", "question_text", "question_text_french"]
+    ordering = ["question_number", "domain"]
     readonly_fields = ["id", "created_by", "created_at", "updated_at", "image_preview", "option_images_preview"]
     autocomplete_fields = ["road_sign"]
     actions = ["activate_questions", "deactivate_questions"]
 
     fieldsets = (
         (_("Question Reference"), {
-            "fields": ("question_number", "domain", "difficulty", "road_sign", "is_active"),
+            "fields": ("question_number", "domain", "road_sign", "is_active"),
         }),
         (_("Question Prompts"), {
-            "fields": ("question_text_kinyarwanda", "question_text"),
+            "fields": ("question_text_kinyarwanda", "question_text", "question_text_french"),
         }),
         (_("Prompt Diagram"), {
             "fields": ("image", "image_preview"),
@@ -390,11 +390,14 @@ class QuizQuestionAdmin(admin.ModelAdmin):
         (_("Answer Options (English)"), {
             "fields": ("option_a", "option_b", "option_c", "option_d"),
         }),
+        (_("Answer Options (French)"), {
+            "fields": ("option_a_french", "option_b_french", "option_c_french", "option_d_french"),
+        }),
         (_("Image-based Answer Choices"), {
             "fields": ("option_a_image", "option_b_image", "option_c_image", "option_d_image", "option_images_preview"),
         }),
         (_("Correct Answer & Explanation"), {
-            "fields": ("correct_option", "explanation_kinyarwanda", "explanation"),
+            "fields": ("correct_option", "explanation_kinyarwanda", "explanation", "explanation_french"),
         }),
         (_("System"), {
             "fields": ("id", "created_by", "created_at", "updated_at"),
@@ -491,9 +494,10 @@ class QuizQuestionItemInline(admin.StackedInline):
     model = QuizQuestionItem
     extra = 0
     fields = [
-        "sort_order", "question_text", "question_text_kinyarwanda",
+        "sort_order", "question_text", "question_text_kinyarwanda", "question_text_french",
         "option_a", "option_b", "option_c", "option_d",
-        "correct_option", "points", "domain", "difficulty", "original_question"
+        "option_a_french", "option_b_french", "option_c_french", "option_d_french",
+        "correct_option", "points", "domain", "original_question"
     ]
     autocomplete_fields = ["original_question"]
     ordering = ["sort_order"]
@@ -507,7 +511,7 @@ class QuizAdmin(admin.ModelAdmin):
         "created_by", "created_at"
     ]
     list_filter = ["is_published", "course", "created_at"]
-    search_fields = ["title", "title_kinyarwanda", "description", "rubric"]
+    search_fields = ["title", "title_kinyarwanda", "title_french", "description", "rubric"]
     readonly_fields = ["created_at", "updated_at"]
     inlines = [QuizQuestionItemInline]
 
@@ -525,9 +529,9 @@ class QuizAdmin(admin.ModelAdmin):
 
 @admin.register(QuizQuestionItem)
 class QuizQuestionItemAdmin(admin.ModelAdmin):
-    list_display = ["quiz", "sort_order", "question_text", "correct_option", "points", "domain", "difficulty"]
-    list_filter = ["quiz", "domain", "difficulty"]
-    search_fields = ["question_text", "question_text_kinyarwanda", "quiz__title"]
+    list_display = ["quiz", "sort_order", "question_text", "correct_option", "points", "domain"]
+    list_filter = ["quiz", "domain"]
+    search_fields = ["question_text", "question_text_kinyarwanda", "question_text_french", "quiz__title"]
 
 
 @admin.register(HelpTicket)

@@ -186,3 +186,125 @@ class AdminExamPublishSerializer(serializers.Serializer):
         allow_empty=True,
     )
     cohort_id = serializers.UUIDField(required=False, allow_null=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Candidate Facing Serializers (Student, Guest, Public)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class CandidateSessionQuestionSerializer(serializers.Serializer):
+    """Question item delivered during an ACTIVE examination session (secrets hidden)."""
+
+    sequence_number = serializers.IntegerField()
+    selected_option = serializers.CharField(allow_blank=True, default="")
+    answered_at = serializers.CharField(allow_null=True, required=False)
+
+    id = serializers.CharField()
+    question_number = serializers.IntegerField()
+    domain = serializers.CharField()
+
+    question_text = serializers.CharField()
+    question_text_kinyarwanda = serializers.CharField(allow_blank=True, default="")
+    question_text_french = serializers.CharField(allow_blank=True, default="")
+
+    option_a = serializers.CharField()
+    option_b = serializers.CharField()
+    option_c = serializers.CharField()
+    option_d = serializers.CharField()
+
+    option_a_kinyarwanda = serializers.CharField(allow_blank=True, default="")
+    option_b_kinyarwanda = serializers.CharField(allow_blank=True, default="")
+    option_c_kinyarwanda = serializers.CharField(allow_blank=True, default="")
+    option_d_kinyarwanda = serializers.CharField(allow_blank=True, default="")
+
+    option_a_french = serializers.CharField(allow_blank=True, default="")
+    option_b_french = serializers.CharField(allow_blank=True, default="")
+    option_c_french = serializers.CharField(allow_blank=True, default="")
+    option_d_french = serializers.CharField(allow_blank=True, default="")
+
+    image = serializers.CharField(allow_null=True, required=False)
+
+
+class CandidateResultQuestionSerializer(CandidateSessionQuestionSerializer):
+    """Question item delivered AFTER submission for answer review."""
+
+    correct_option = serializers.CharField()
+    is_correct = serializers.BooleanField(allow_null=True)
+    explanation = serializers.CharField(allow_blank=True, default="")
+    explanation_kinyarwanda = serializers.CharField(allow_blank=True, default="")
+    explanation_french = serializers.CharField(allow_blank=True, default="")
+
+
+class CandidateSessionStateSerializer(serializers.Serializer):
+    """Live state of an active candidate examination session."""
+
+    id = serializers.CharField()
+    exam_id = serializers.CharField(allow_null=True)
+    exam_title = serializers.CharField(default="Official Theory Examination")
+    track = serializers.CharField(default="STUDENT")
+    status = serializers.CharField()
+
+    started_at = serializers.CharField()
+    expires_at = serializers.CharField()
+    duration_minutes = serializers.IntegerField(default=20)
+    time_remaining_seconds = serializers.IntegerField(default=1200)
+
+    total_questions = serializers.IntegerField(default=20)
+    answered_count = serializers.IntegerField(default=0)
+    violation_count = serializers.IntegerField(default=0)
+
+    questions = serializers.ListField(child=serializers.DictField())
+
+
+class CandidateSessionResultSerializer(serializers.Serializer):
+    """Final graded results and answer review."""
+
+    id = serializers.CharField()
+    exam_id = serializers.CharField(allow_null=True)
+    exam_title = serializers.CharField(default="Official Theory Examination")
+    track = serializers.CharField(default="STUDENT")
+    status = serializers.CharField()
+
+    started_at = serializers.CharField()
+    submitted_at = serializers.CharField(allow_null=True)
+    duration_minutes = serializers.IntegerField(default=20)
+
+    score = serializers.IntegerField(allow_null=True)
+    total_questions = serializers.IntegerField(default=20)
+    passing_score = serializers.IntegerField(default=12)
+    passed = serializers.BooleanField(allow_null=True)
+    violation_count = serializers.IntegerField(default=0)
+
+    questions = serializers.ListField(child=serializers.DictField())
+
+
+class RecordAnswerSerializer(serializers.Serializer):
+    """Payload to record an answer during an active exam."""
+
+    sequence_number = serializers.IntegerField(min_value=1, max_value=20)
+    selected_option = serializers.ChoiceField(choices=["A", "B", "C", "D"])
+
+
+class ProctorEventInputSerializer(serializers.Serializer):
+    """Payload to log a proctoring event or violation snapshot."""
+
+    event_type = serializers.CharField(max_length=64)
+    snapshot_image = serializers.CharField(required=False, allow_blank=True, default="")
+    metadata = serializers.DictField(required=False, default=dict)
+    is_violation = serializers.BooleanField(default=True)
+
+
+class StartStudentExamSerializer(serializers.Serializer):
+    """Preflight diagnostic confirmation payload to launch student exam."""
+
+    selfie_image = serializers.CharField(required=False, allow_blank=True, default="")
+    preflight_checks = serializers.DictField(required=False, default=dict)
+
+
+class BuyExamPackageSerializer(serializers.Serializer):
+    """Payload to purchase exam credits via MoMo."""
+
+    package_key = serializers.CharField(max_length=32)
+    paying_number = serializers.CharField(max_length=32)
+    phone_number = serializers.CharField(max_length=32, required=False, allow_blank=True)
+

@@ -20,3 +20,14 @@ class CertificateTemplateType(models.TextChoices):
     STUDENT = "STUDENT", _("Student Enrolled (Cohort Theory Accreditation)")
     GUEST = "GUEST", _("Guest Diagnostic (Provisional Readiness Assessment)")
     ENTERPRISE = "ENTERPRISE", _("Enterprise Driving School (B2B Certified Lab)")
+
+
+class ExamType(models.TextChoices):
+    STUDENT = "STUDENT", _("Student Official Exam")
+    PUBLIC_PRACTICE = "PUBLIC_PRACTICE", _("Public / Guest Practice Exam")
+
+
+class ExamStatus(models.TextChoices):
+    DRAFT = "DRAFT", _("Draft")
+    PUBLISHED = "PUBLISHED", _("Published")
+    CLOSED = "CLOSED", _("Closed")

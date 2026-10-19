@@ -26,15 +26,24 @@ class QuizQuestionListSerializer(serializers.ModelSerializer):
     option_d_rw = serializers.CharField(source="option_d_kinyarwanda", read_only=True)
     explanation_rw = serializers.CharField(source="explanation_kinyarwanda", read_only=True)
 
+    question_text_fr = serializers.CharField(source="question_text_french", read_only=True)
+    option_a_fr = serializers.CharField(source="option_a_french", read_only=True)
+    option_b_fr = serializers.CharField(source="option_b_french", read_only=True)
+    option_c_fr = serializers.CharField(source="option_c_french", read_only=True)
+    option_d_fr = serializers.CharField(source="option_d_french", read_only=True)
+    explanation_fr = serializers.CharField(source="explanation_french", read_only=True)
+
     class Meta:
         model = QuizQuestion
         fields = [
-            "id", "question_number", "domain", "difficulty",
-            "question_text", "question_text_kinyarwanda", "question_text_rw",
+            "id", "question_number", "domain",
+            "question_text", "question_text_kinyarwanda", "question_text_rw", "question_text_french", "question_text_fr",
             "option_a", "option_b", "option_c", "option_d",
             "option_a_kinyarwanda", "option_b_kinyarwanda", "option_c_kinyarwanda", "option_d_kinyarwanda",
             "option_a_rw", "option_b_rw", "option_c_rw", "option_d_rw",
-            "correct_option", "explanation", "explanation_kinyarwanda", "explanation_rw",
+            "option_a_french", "option_b_french", "option_c_french", "option_d_french",
+            "option_a_fr", "option_b_fr", "option_c_fr", "option_d_fr",
+            "correct_option", "explanation", "explanation_kinyarwanda", "explanation_rw", "explanation_french", "explanation_fr",
             "image",
             "option_a_image", "option_b_image", "option_c_image", "option_d_image",
             "road_sign",
@@ -51,6 +60,8 @@ class QuizQuestionListSerializer(serializers.ModelSerializer):
             ret.pop("explanation", None)
             ret.pop("explanation_kinyarwanda", None)
             ret.pop("explanation_rw", None)
+            ret.pop("explanation_french", None)
+            ret.pop("explanation_fr", None)
         return ret
 
 
@@ -63,12 +74,13 @@ class QuizQuestionDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = QuizQuestion
         fields = [
-            "id", "question_number", "domain", "difficulty",
-            "question_text", "question_text_kinyarwanda",
+            "id", "question_number", "domain",
+            "question_text", "question_text_kinyarwanda", "question_text_french",
             "option_a", "option_b", "option_c", "option_d",
             "option_a_kinyarwanda", "option_b_kinyarwanda", "option_c_kinyarwanda", "option_d_kinyarwanda",
+            "option_a_french", "option_b_french", "option_c_french", "option_d_french",
             "correct_option", "correct_text",
-            "explanation", "explanation_kinyarwanda",
+            "explanation", "explanation_kinyarwanda", "explanation_french",
             "image",
             "option_a_image", "option_b_image", "option_c_image", "option_d_image",
             "road_sign", "road_sign_detail",
@@ -84,11 +96,12 @@ class QuizQuestionWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = QuizQuestion
         fields = [
-            "question_number", "domain", "difficulty",
-            "question_text", "question_text_kinyarwanda",
+            "question_number", "domain",
+            "question_text", "question_text_kinyarwanda", "question_text_french",
             "option_a", "option_b", "option_c", "option_d",
             "option_a_kinyarwanda", "option_b_kinyarwanda", "option_c_kinyarwanda", "option_d_kinyarwanda",
-            "correct_option", "explanation", "explanation_kinyarwanda",
+            "option_a_french", "option_b_french", "option_c_french", "option_d_french",
+            "correct_option", "explanation", "explanation_kinyarwanda", "explanation_french",
             "image",
             "option_a_image", "option_b_image", "option_c_image", "option_d_image",
             "road_sign", "is_active",
@@ -115,11 +128,12 @@ class QuizQuestionItemSerializer(serializers.ModelSerializer):
         model = QuizQuestionItem
         fields = [
             "id", "sort_order", "original_question",
-            "points", "question_text", "question_text_kinyarwanda",
+            "points", "question_text", "question_text_kinyarwanda", "question_text_french",
             "option_a", "option_b", "option_c", "option_d",
             "option_a_kinyarwanda", "option_b_kinyarwanda", "option_c_kinyarwanda", "option_d_kinyarwanda",
-            "correct_option", "explanation", "explanation_kinyarwanda",
-            "domain", "difficulty",
+            "option_a_french", "option_b_french", "option_c_french", "option_d_french",
+            "correct_option", "explanation", "explanation_kinyarwanda", "explanation_french",
+            "domain",
         ]
         read_only_fields = ["id"]
 
@@ -131,6 +145,7 @@ class QuizQuestionItemSerializer(serializers.ModelSerializer):
             data.pop("correct_option", None)
             data.pop("explanation", None)
             data.pop("explanation_kinyarwanda", None)
+            data.pop("explanation_french", None)
         return data
 
 
@@ -227,12 +242,12 @@ class QuizListSerializer(serializers.ModelSerializer):
         fields = [
             "id", "course", "course_title", "module", "module_title",
             "quiz_type", "enable_proctoring", "max_tab_switches_allowed",
-            "title", "title_kinyarwanda", "description", "description_kinyarwanda",
+            "title", "title_kinyarwanda", "title_french", "description", "description_kinyarwanda", "description_french",
             "open_date", "deadline", "closing_date", "allow_late_submission", "is_final_exam",
             "time_limit_minutes", "total_score",
             "calculated_total_points", "passing_score", "max_attempts",
             "shuffle_questions", "is_published", "release_grades_immediately", "is_locked", "status", "question_count",
-            "rubric", "rubric_kinyarwanda",
+            "rubric", "rubric_kinyarwanda", "rubric_french",
             "allow_tutor_scheduling", "allow_tutor_edit_instructions",
             "allow_tutor_edit_duration", "allow_tutor_edit_attempts",
             "created_by", "created_by_name", "created_by_detail", "created_at", "updated_at",
@@ -256,11 +271,11 @@ class QuizWriteSerializer(serializers.ModelSerializer):
         model = Quiz
         fields = [
             "id", "course", "module", "quiz_type", "enable_proctoring", "max_tab_switches_allowed",
-            "title", "title_kinyarwanda",
-            "description", "description_kinyarwanda",
+            "title", "title_kinyarwanda", "title_french",
+            "description", "description_kinyarwanda", "description_french",
             "open_date", "deadline", "closing_date", "allow_late_submission", "is_final_exam",
             "time_limit_minutes", "total_score", "passing_score",
-            "rubric", "rubric_kinyarwanda",
+            "rubric", "rubric_kinyarwanda", "rubric_french",
             "max_attempts", "shuffle_questions", "is_published", "release_grades_immediately",
             "allow_tutor_scheduling", "allow_tutor_edit_instructions",
             "allow_tutor_edit_duration", "allow_tutor_edit_attempts",
@@ -446,14 +461,40 @@ class QuizSubmissionSerializer(serializers.ModelSerializer):
             if it.option_d:
                 options_dict["D"] = it.option_d
 
+            options_kinyarwanda_dict = {}
+            if it.option_a_kinyarwanda:
+                options_kinyarwanda_dict["A"] = it.option_a_kinyarwanda
+            if it.option_b_kinyarwanda:
+                options_kinyarwanda_dict["B"] = it.option_b_kinyarwanda
+            if it.option_c_kinyarwanda:
+                options_kinyarwanda_dict["C"] = it.option_c_kinyarwanda
+            if it.option_d_kinyarwanda:
+                options_kinyarwanda_dict["D"] = it.option_d_kinyarwanda
+
+            options_french_dict = {}
+            if it.option_a_french:
+                options_french_dict["A"] = it.option_a_french
+            if it.option_b_french:
+                options_french_dict["B"] = it.option_b_french
+            if it.option_c_french:
+                options_french_dict["C"] = it.option_c_french
+            if it.option_d_french:
+                options_french_dict["D"] = it.option_d_french
+
             breakdown.append({
                 "item_id": it_key,
                 "order": it.sort_order,
                 "question_text": it.question_text,
+                "question_text_kinyarwanda": it.question_text_kinyarwanda,
+                "question_text_french": it.question_text_french,
                 "points": it.points,
                 "options": options_dict,
+                "options_kinyarwanda": options_kinyarwanda_dict,
+                "options_french": options_french_dict,
                 "correct_option": it.correct_option,
                 "explanation": it.explanation,
+                "explanation_kinyarwanda": it.explanation_kinyarwanda,
+                "explanation_french": it.explanation_french,
                 "student_answer": selected,
                 "is_correct": is_correct,
                 "is_flagged_for_review": is_flagged_for_review,

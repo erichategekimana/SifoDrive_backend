@@ -305,16 +305,19 @@ class StudentCohortActivitiesListView(SuccessResponseMixin, APIView):
                 raise PermissionDenied("You are not enrolled in this cohort.")
             cohort_qs = [cohort]
         else:
-            cohort_qs = user.enrolled_cohorts.filter(is_active=True)
-            if not cohort_qs.exists():
-                return self.success_response(data=[])
+            if user.role in (UserRole.SYSTEM_ADMIN, UserRole.TRAINING_ADMIN) or user.is_superuser:
+                cohort_qs = Cohort.objects.all()
+            else:
+                cohort_qs = user.enrolled_cohorts.filter(is_active=True)
+                if not cohort_qs.exists():
+                    return self.success_response(data=[])
 
         course_id = request.query_params.get("course_id")
         qs = CohortActivity.objects.filter(
-            cohort__in=cohort_qs, is_published=True, is_deleted=False
+            cohort__in=cohort_qs, is_deleted=False
         ).select_related("cohort", "course", "module", "created_by")
         if user.role == UserRole.STUDENT:
-            qs = qs.filter(is_locked=False)
+            qs = qs.filter(is_published=True, is_locked=False)
         if course_id:
             qs = qs.filter(course_id=course_id)
 

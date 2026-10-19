@@ -14,7 +14,7 @@ class CohortActivitySerializer(serializers.ModelSerializer):
     cohort_name = serializers.CharField(source="cohort.name", read_only=True)
     course_title = serializers.CharField(source="course.title", read_only=True)
     module_title = serializers.CharField(source="module.title", read_only=True, allow_null=True)
-    created_by_name = serializers.CharField(source="created_by.full_name", read_only=True)
+    created_by_name = serializers.SerializerMethodField()
     submission_count = serializers.IntegerField(read_only=True)
     graded_count = serializers.IntegerField(read_only=True)
     description = serializers.CharField(required=False, allow_blank=True, default="")
@@ -64,6 +64,16 @@ class CohortActivitySerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["created_by", "created_at", "updated_at"]
+
+    def get_created_by_name(self, obj):
+        if obj.created_by:
+            name = (getattr(obj.created_by, "full_name", "") or "").strip()
+            if not name:
+                first = getattr(obj.created_by, "first_name", "") or ""
+                last = getattr(obj.created_by, "last_name", "") or ""
+                name = f"{first} {last}".strip()
+            return name or getattr(obj.created_by, "phone_number", None) or "Tutor / Staff"
+        return "Tutor / Staff"
 
     def get_attachment_file(self, obj):
         if not obj.attachment:

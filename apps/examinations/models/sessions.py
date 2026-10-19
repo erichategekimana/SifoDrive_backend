@@ -9,6 +9,14 @@ class ExamSession(BaseModel):
     TRACKS = [('B2C', 'Personal (Remote)'), ('B2B', 'Enterprise Lab')]
 
     student = models.ForeignKey('accounts.User', on_delete=models.CASCADE, related_name='exam_sessions')
+    exam = models.ForeignKey(
+        'examinations.Exam',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='sessions',
+        verbose_name=_('Scheduled Exam Window'),
+    )
     cohort = models.ForeignKey(
         'live_classes.Cohort',
         on_delete=models.SET_NULL,
@@ -104,7 +112,14 @@ class ExamSession(BaseModel):
 class SessionQuestion(BaseModel):
     """One question as it appears in an exam session (immutable snapshot)."""
     session = models.ForeignKey(ExamSession, on_delete=models.CASCADE, related_name='session_questions')
-    question = models.ForeignKey('lms.QuizQuestion', on_delete=models.PROTECT, related_name='session_appearances')
+    question = models.ForeignKey(
+        'lms.QuizQuestion',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='session_appearances',
+    )
+    frozen_data = models.JSONField(_('Frozen Question Payload'), default=dict, blank=True)
     selected_option = models.CharField(_('Selected Option'), max_length=1, blank=True, default='')
     is_correct = models.BooleanField(_('Correct'), null=True, blank=True)
     answered_at = models.DateTimeField(_('Answered At'), null=True, blank=True)

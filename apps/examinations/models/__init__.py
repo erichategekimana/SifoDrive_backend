@@ -7,7 +7,10 @@ Facade exposing all examination engine models and choices.
 from apps.examinations.models.choices import (
     CertificateTemplateType,
     ExamSessionStatus,
+    ExamStatus,
+    ExamType,
 )
+from apps.examinations.models.exam import Exam
 from apps.examinations.models.sessions import (
     ExamSession,
     ProctoringEvent,
@@ -19,6 +22,9 @@ from apps.examinations.models.certificates import (
 )
 
 __all__ = [
+    "Exam",
+    "ExamType",
+    "ExamStatus",
     "ExamSessionStatus",
     "CertificateTemplateType",
     "ExamSession",
@@ -27,3 +33,4 @@ __all__ = [
     "CertificateTemplate",
     "Certificate",
 ]
+

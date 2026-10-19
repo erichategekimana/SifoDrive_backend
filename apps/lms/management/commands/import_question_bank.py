@@ -3,6 +3,7 @@ apps/lms/management/commands/import_question_bank.py
 ===================================================
 Management command to import parsed driving theory questions
 from data/parsed_questions.json into the PostgreSQL QuizQuestion table.
+Supports Kinyarwanda, English, and French. Difficulty has been removed.
 """
 
 import json
@@ -10,11 +11,11 @@ import os
 from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from apps.lms.models import QuizQuestion, QuizDomain, Difficulty, CorrectOption
+from apps.lms.models import QuizQuestion, QuizDomain, CorrectOption
 
 
 class Command(BaseCommand):
-    help = "Import parsed driving questions into PostgreSQL Question Bank"
+    help = "Import parsed driving questions (Kinyarwanda, English, French) into PostgreSQL Question Bank"
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -64,9 +65,9 @@ class Command(BaseCommand):
 
                 defaults = {
                     "domain": domain,
-                    "difficulty": Difficulty.MEDIUM,
                     "question_text_kinyarwanda": item.get("question_text_kinyarwanda", "").strip(),
                     "question_text": item.get("question_text", "").strip(),
+                    "question_text_french": item.get("question_text_french", "").strip(),
                     "option_a_kinyarwanda": item.get("option_a_kinyarwanda", "").strip()[:500],
                     "option_b_kinyarwanda": item.get("option_b_kinyarwanda", "").strip()[:500],
                     "option_c_kinyarwanda": item.get("option_c_kinyarwanda", "").strip()[:500],
@@ -75,9 +76,14 @@ class Command(BaseCommand):
                     "option_b": item.get("option_b", "").strip()[:500],
                     "option_c": item.get("option_c", "").strip()[:500],
                     "option_d": item.get("option_d", "").strip()[:500],
+                    "option_a_french": item.get("option_a_french", "").strip()[:500],
+                    "option_b_french": item.get("option_b_french", "").strip()[:500],
+                    "option_c_french": item.get("option_c_french", "").strip()[:500],
+                    "option_d_french": item.get("option_d_french", "").strip()[:500],
                     "correct_option": correct,
                     "explanation": item.get("explanation", "").strip(),
                     "explanation_kinyarwanda": item.get("explanation_kinyarwanda", "").strip(),
+                    "explanation_french": item.get("explanation_french", "").strip(),
                     "image": item.get("image") or None,
                     "option_a_image": item.get("option_a_image") or None,
                     "option_b_image": item.get("option_b_image") or None,
@@ -86,15 +92,23 @@ class Command(BaseCommand):
                     "is_active": True,
                 }
 
-                obj, created = QuizQuestion.objects.update_or_create(
-                    question_number=q_num,
-                    defaults=defaults,
-                )
-
-                if created:
+                if clear_first:
+                    QuizQuestion.objects.create(question_number=q_num, **defaults)
                     created_count += 1
                 else:
-                    updated_count += 1
+                    # Match by question_number and question_text_kinyarwanda to avoid duplicate number collisions
+                    existing = QuizQuestion.objects.filter(
+                        question_number=q_num,
+                        question_text_kinyarwanda=defaults["question_text_kinyarwanda"]
+                    ).first()
+                    if existing:
+                        for k, v in defaults.items():
+                            setattr(existing, k, v)
+                        existing.save()
+                        updated_count += 1
+                    else:
+                        QuizQuestion.objects.create(question_number=q_num, **defaults)
+                        created_count += 1
 
         self.stdout.write(
             self.style.SUCCESS(

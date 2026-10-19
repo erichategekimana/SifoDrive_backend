@@ -4,6 +4,19 @@ apps/examinations/views/__init__.py
 Facade exposing all examination views.
 """
 
+from apps.examinations.views.candidate_views import (
+    CandidateSessionAnswerView,
+    CandidateSessionDetailView,
+    CandidateSessionProctorEventView,
+    CandidateSessionResultsView,
+    CandidateSessionSubmitView,
+    PublicExamBuyView,
+    PublicExamCreditsView,
+    PublicExamPackagesView,
+    PublicExamStartView,
+    StudentExamListView,
+    StudentExamStartView,
+)
 from apps.examinations.views.certificate_views import (
     AdminCertificateDetailView,
     AdminCertificateListView,
@@ -11,8 +24,15 @@ from apps.examinations.views.certificate_views import (
     AdminCertificateTemplateListView,
     PublicCertificateVerifyView,
 )
+from apps.examinations.views.exam_views import (
+    AdminExamAuditView,
+    AdminExamDetailView,
+    AdminExamListView,
+    AdminExamTogglePublishView,
+)
 from apps.examinations.views.question_views import (
     AdminQuestionBankDetailView,
+    AdminQuestionBankEditAccessView,
     AdminQuestionBankListView,
 )
 from apps.examinations.views.session_views import (
@@ -23,6 +43,10 @@ from apps.examinations.views.session_views import (
 )
 
 __all__ = [
+    "AdminExamListView",
+    "AdminExamDetailView",
+    "AdminExamAuditView",
+    "AdminExamTogglePublishView",
     "AdminExamSessionListView",
     "AdminExamSessionDetailView",
     "AdminExamStageActionView",
@@ -33,5 +57,18 @@ __all__ = [
     "AdminCertificateTemplateDetailView",
     "PublicCertificateVerifyView",
     "AdminQuestionBankListView",
+    "AdminQuestionBankEditAccessView",
     "AdminQuestionBankDetailView",
+    "StudentExamListView",
+    "StudentExamStartView",
+    "CandidateSessionDetailView",
+    "CandidateSessionAnswerView",
+    "CandidateSessionProctorEventView",
+    "CandidateSessionSubmitView",
+    "CandidateSessionResultsView",
+    "PublicExamPackagesView",
+    "PublicExamCreditsView",
+    "PublicExamBuyView",
+    "PublicExamStartView",
 ]
+

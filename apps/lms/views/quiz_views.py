@@ -62,10 +62,10 @@ class QuizQuestionListView(SuccessResponseMixin, generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class   = QuizQuestionListSerializer
     pagination_class   = LargeBatchPagination
-    filterset_fields   = ["domain", "difficulty", "is_active"]
-    search_fields      = ["question_text", "question_text_kinyarwanda"]
-    ordering_fields    = ["domain", "difficulty", "created_at"]
-    ordering           = ["domain", "difficulty"]
+    filterset_fields   = ["domain", "is_active"]
+    search_fields      = ["question_text", "question_text_kinyarwanda", "question_text_french"]
+    ordering_fields    = ["domain", "question_number", "created_at"]
+    ordering           = ["domain", "question_number"]
 
     def get_queryset(self):
         if self.request.user.role not in (
