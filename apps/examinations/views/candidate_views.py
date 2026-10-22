@@ -7,13 +7,21 @@ Candidate-facing API Views for:
   3. Post-submission answer and explanation review for all candidates.
 """
 
+import hmac as _hmac
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict
+from django.conf import settings
+from django.db import transaction
+from django.utils.decorators import method_decorator
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
+
+from apps.accounts.models.otp import OTPVerification
+from apps.core.utils import OTPUtils, normalize_phone_number
+from apps.notifications.tasks import send_otp_sms_task
 
 from apps.core.mixins import SuccessResponseMixin
 from apps.examinations.serializers import (
@@ -444,16 +452,40 @@ class CandidateSessionResultsView(SuccessResponseMixin, APIView):
 # Guest & Public Paid Examination Endpoints
 # ──────────────────────────────────────────────────────────────────────────────
 
+@method_decorator(transaction.non_atomic_requests, name="dispatch")
 class PublicExamPackagesView(SuccessResponseMixin, APIView):
-    """Lists available practice exam packages and pricing."""
+    """Lists or updates available practice exam packages and pricing."""
     permission_classes = [AllowAny]
 
     def get(self, request):
-        packages = ExamCreditService.list_packages()
+        from apps.examinations.services.exam_service import ExamService
+        is_published = ExamService.is_public_exam_published()
+
+        include_all = request.query_params.get("include_all", "").lower() in ("true", "1")
+        if include_all:
+            all_pkgs = ExamCreditService._load_packages_config()
+            packages = list(all_pkgs.values())
+        else:
+            packages = ExamCreditService.list_packages()
+
         return self.success_response(
-            data=packages,
+            data={
+                "packages": packages,
+                "is_public_exam_published": is_published,
+            } if request.query_params.get("with_meta") == "1" else packages,
             message="Practice exam packages retrieved.",
         )
+
+    def post(self, request):
+        packages_data = request.data.get("packages") if isinstance(request.data, dict) and "packages" in request.data else request.data
+        updated = ExamCreditService.save_packages_config(packages_data)
+        return self.success_response(
+            data=list(updated.values()),
+            message="Practice exam packages updated successfully.",
+        )
+
+    def put(self, request):
+        return self.post(request)
 
 
 class PublicExamCreditsView(SuccessResponseMixin, APIView):
@@ -484,6 +516,8 @@ class PublicExamBuyView(SuccessResponseMixin, APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        from apps.payments.services.momo_client import MTNMomoException
+
         serializer = BuyExamPackageSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
@@ -501,23 +535,47 @@ class PublicExamBuyView(SuccessResponseMixin, APIView):
             )
 
         try:
-            result = ExamCreditService.purchase_package(
+            result = ExamCreditService.initiate_momo_purchase(
                 phone_number=phone,
                 paying_number=data["paying_number"],
                 package_key=data["package_key"],
+                exam_count=data.get("exam_count"),
+                full_name=data.get("full_name", ""),
                 user=user,
             )
             return self.success_response(
                 data=result,
                 message=result["message"],
-                status_code=status.HTTP_201_CREATED,
+                status_code=status.HTTP_200_OK,
             )
-        except ValueError as err:
+        except (ValueError, MTNMomoException) as err:
+            logger.error("MoMo exam purchase initiation failed: %s", err)
             return self.error_response(
                 code="PURCHASE_FAILED",
                 message=str(err),
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
+
+
+class PublicExamPaymentStatusView(SuccessResponseMixin, APIView):
+    """Checks and polls the status of an ongoing MoMo exam purchase."""
+    permission_classes = [AllowAny]
+
+    def get(self, request, reference_id):
+        ref = str(reference_id)
+        result = ExamCreditService.check_payment_status(ref)
+        if not result:
+            return self.error_response(
+                code="PAYMENT_NOT_FOUND",
+                message="Payment reference not found.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        return self.success_response(
+            data=result,
+            message=result.get("message", "Payment status retrieved."),
+            status_code=status.HTTP_200_OK,
+        )
 
 
 class PublicExamStartView(SuccessResponseMixin, APIView):
@@ -569,3 +627,130 @@ class PublicExamStartView(SuccessResponseMixin, APIView):
             message="Practice exam started. Timer has begun (20 minutes). Fullscreen recommended.",
             status_code=status.HTTP_201_CREATED,
         )
+
+
+class PublicExamOTPRequestView(SuccessResponseMixin, APIView):
+    """
+    Sends a 6-digit verification OTP code via SMS to a candidate's phone number
+    before purchasing exam packages.
+    The code is strictly valid for 5 minutes (300 seconds).
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        phone = (request.data.get("phone_number") or "").strip()
+        full_name = (request.data.get("full_name") or "").strip()
+
+        if not phone:
+            return self.error_response(
+                code="PHONE_REQUIRED",
+                message="Phone number is required for OTP verification.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        normalized_phone = normalize_phone_number(phone, "RW") or phone.replace(" ", "").replace("-", "")
+
+        # Invalidate any pending OTPs for this phone number and purpose
+        OTPVerification.objects.filter(
+            phone_number=normalized_phone,
+            purpose="PUBLIC_EXAM_PURCHASE",
+            is_used=False,
+        ).update(is_used=True)
+
+        # 6-digit numeric OTP code
+        raw_otp = OTPUtils.generate_numeric(6)
+        expires_at = timezone.now() + timedelta(minutes=5)
+
+        OTPVerification.objects.create(
+            phone_number=normalized_phone,
+            otp_hash=OTPVerification.hash_otp(raw_otp),
+            purpose="PUBLIC_EXAM_PURCHASE",
+            expires_at=expires_at,
+        )
+
+        try:
+            send_otp_sms_task.delay(normalized_phone, raw_otp, "PUBLIC_EXAM_PURCHASE")
+        except Exception as exc:
+            logger.error("Failed to queue OTP SMS: %s", exc)
+
+        response_data = {
+            "phone_number": normalized_phone,
+            "full_name": full_name,
+            "expires_in_seconds": 300,
+        }
+
+        return self.success_response(
+            data=response_data,
+            message=f"A 6-digit verification code has been sent to {normalized_phone}. It is valid for 5 minutes.",
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class PublicExamOTPVerifyView(SuccessResponseMixin, APIView):
+    """
+    Verifies the 6-digit OTP code sent to the candidate's phone number.
+    Ensures OTP is valid for 5 minutes and marks it as consumed upon success.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        phone = (request.data.get("phone_number") or "").strip()
+        code = (request.data.get("otp_code") or "").strip()
+
+        if not phone or not code:
+            return self.error_response(
+                code="FIELDS_REQUIRED",
+                message="Both phone number and OTP code are required.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        normalized_phone = normalize_phone_number(phone, "RW") or phone.replace(" ", "").replace("-", "")
+
+        try:
+            otp = OTPVerification.objects.filter(
+                phone_number=normalized_phone,
+                purpose="PUBLIC_EXAM_PURCHASE",
+                is_used=False,
+            ).latest("created_at")
+        except OTPVerification.DoesNotExist:
+            return self.error_response(
+                code="OTP_NOT_FOUND",
+                message="No active verification code found for this phone number. Please request a new code.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if otp.attempt_count >= 5:
+            return self.error_response(
+                code="OTP_TOO_MANY_ATTEMPTS",
+                message="Too many incorrect attempts. Please request a new verification code.",
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
+        if otp.is_expired:
+            return self.error_response(
+                code="OTP_EXPIRED",
+                message="This verification code has expired (valid for 5 minutes). Please request a new code.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        submitted_hash = OTPVerification.hash_otp(code)
+        if not _hmac.compare_digest(submitted_hash, otp.otp_hash):
+            otp.increment_attempts()
+            remaining = 5 - otp.attempt_count
+            return self.error_response(
+                code="OTP_INVALID",
+                message=f"Incorrect verification code. {max(0, remaining)} attempt(s) remaining.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        otp.mark_used()
+
+        return self.success_response(
+            data={
+                "phone_number": normalized_phone,
+                "verified": True,
+            },
+            message="Phone number verified successfully.",
+            status_code=status.HTTP_200_OK,
+        )
+

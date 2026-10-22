@@ -12,7 +12,10 @@ from apps.examinations.views.candidate_views import (
     CandidateSessionSubmitView,
     PublicExamBuyView,
     PublicExamCreditsView,
+    PublicExamOTPRequestView,
+    PublicExamOTPVerifyView,
     PublicExamPackagesView,
+    PublicExamPaymentStatusView,
     PublicExamStartView,
     StudentExamListView,
     StudentExamStartView,
@@ -69,6 +72,9 @@ __all__ = [
     "PublicExamPackagesView",
     "PublicExamCreditsView",
     "PublicExamBuyView",
+    "PublicExamPaymentStatusView",
+    "PublicExamOTPRequestView",
+    "PublicExamOTPVerifyView",
     "PublicExamStartView",
 ]
 

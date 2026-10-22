@@ -172,12 +172,14 @@ class NotificationService:
             "LOGIN": "Kwinjira muri konti",
             "PASSWORD_RESET": "Guhindura ijambo ry'ibanga",
             "IREMBO_BOOKING": "Kwemeza gusaba Irembo",
+            "PUBLIC_EXAM_PURCHASE": "Kugura ibizamini",
         }
         purpose_labels_en = {
             "REGISTRATION": "Verify your account",
             "LOGIN": "Login verification",
             "PASSWORD_RESET": "Password reset",
             "IREMBO_BOOKING": "Confirm Irembo booking",
+            "PUBLIC_EXAM_PURCHASE": "Exam purchase verification",
         }
 
         purpose_label = (
@@ -186,10 +188,11 @@ class NotificationService:
             else purpose_labels_en.get(purpose, "Verification")
         )
 
+        expiry_mins = 5 if purpose == "PUBLIC_EXAM_PURCHASE" else getattr(settings, "OTP_EXPIRY_MINUTES", 10)
         context = {
             "purpose_label": purpose_label,
             "otp_code": raw_otp,
-            "expiry_minutes": getattr(settings, "OTP_EXPIRY_MINUTES", 10),
+            "expiry_minutes": expiry_mins,
         }
 
         _, body = TemplateService.render(

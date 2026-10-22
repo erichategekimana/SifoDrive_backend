@@ -307,4 +307,6 @@ class BuyExamPackageSerializer(serializers.Serializer):
     package_key = serializers.CharField(max_length=32)
     paying_number = serializers.CharField(max_length=32)
     phone_number = serializers.CharField(max_length=32, required=False, allow_blank=True)
+    full_name = serializers.CharField(max_length=128, required=False, allow_blank=True)
+    exam_count = serializers.IntegerField(required=False, min_value=1, max_value=100)
 

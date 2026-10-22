@@ -63,7 +63,7 @@ class ExamService:
         },
         {
             "id": "e2222222-2222-4222-8222-222222222222",
-            "title": "Public & Guest Practice Theory Examination",
+            "title": "Public Examination",
             "title_kinyarwanda": "Ikizamini cy'Imyitozo rusange cy'Amategeko y'Umuhanda",
             "title_french": "Examen Blanc Public & Candidats Libres",
             "exam_type": "PUBLIC_PRACTICE",
@@ -298,6 +298,15 @@ class ExamService:
         return False
 
     @classmethod
+    def is_public_exam_published(cls) -> bool:
+        """Returns True if the public examination engine is currently published."""
+        exams = cls.load_all_exams()
+        for e in exams:
+            if e.get("exam_type") == "PUBLIC_PRACTICE" or str(e.get("id")) == "e2222222-2222-4222-8222-222222222222":
+                return bool(e.get("is_published", False))
+        return False
+
+    @classmethod
     def toggle_publish(cls, exam_id: str) -> Optional[Dict[str, Any]]:
         exams = cls.load_all_exams()
         for idx, e in enumerate(exams):
@@ -309,6 +318,22 @@ class ExamService:
                 e["updated_at"] = timezone.now().isoformat()
                 exams[idx] = e
                 cls.save_all_exams(exams)
+
+                # If this is the Public Examination and it was unpublished,
+                # automatically deactivate all practice packages in the config.
+                if e.get("exam_type") == "PUBLIC_PRACTICE" or str(e.get("id")) == "e2222222-2222-4222-8222-222222222222":
+                    try:
+                        from apps.examinations.services.credit_service import ExamCreditService
+                        if not next_pub:
+                            current_pkgs = ExamCreditService._load_packages_config()
+                            for pkg in current_pkgs.values():
+                                pkg["isActive"] = False
+                                pkg["is_active"] = False
+                            ExamCreditService.save_packages_config(current_pkgs)
+                            logger.info("Public Examination unpublished: automatically deactivated all exam pricing packages.")
+                    except Exception as err:
+                        logger.error("Failed to sync package deactivation on exam unpublish: %s", err)
+
                 return e
         return None
 

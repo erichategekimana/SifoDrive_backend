@@ -23,6 +23,7 @@ class OTPVerification(UUIDModel, TimeStampedModel):
         ("PHONE_CHANGE", "Phone Number Change"),
         ("PASSWORD_RESET", "Password Reset"),
         ("IREMBO_BOOKING", "Irembo Booking Confirmation"),
+        ("PUBLIC_EXAM_PURCHASE", "Public Exam Purchase"),
     ]
 
     phone_number = models.CharField(

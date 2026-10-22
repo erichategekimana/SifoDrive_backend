@@ -53,5 +53,40 @@
     ],
     "last_purchased_at": "2026-10-19T08:46:56.668608+00:00",
     "updated_at": "2026-10-19T08:46:56.671777+00:00"
+  },
+  "0780842458": {
+    "phone_number": "0780842458",
+    "user_id": null,
+    "credits": 1,
+    "total_purchased": 2,
+    "total_consumed": 1,
+    "transactions": [
+      {
+        "tx_id": "MOMO-CD77AE2D4D",
+        "package": "BASIC",
+        "package_name": "1 Exam",
+        "credits_added": 1,
+        "amount_rwf": 100,
+        "paying_number": "0780842458",
+        "recipient_phone": "0780842458",
+        "status": "COMPLETED",
+        "created_at": "2026-10-21T08:40:31.284188+00:00"
+      },
+      {
+        "tx_id": "MOMO-55CD62E0",
+        "reference_id": "55cd62e0-848e-48be-8afb-551ad573aa25",
+        "financial_transaction_id": "1444215829",
+        "package": "BASIC",
+        "package_name": "1 Exam",
+        "credits_added": 1,
+        "amount_rwf": 100,
+        "paying_number": "0780842458",
+        "recipient_phone": "0780842458",
+        "status": "COMPLETED",
+        "created_at": "2026-10-21T11:15:57.063782+00:00"
+      }
+    ],
+    "last_purchased_at": "2026-10-21T11:15:57.063782+00:00",
+    "updated_at": "2026-10-21T08:43:53.740733+00:00"
   }
 }
