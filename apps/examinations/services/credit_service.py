@@ -291,18 +291,140 @@ class ExamCreditService:
         return clean.replace(" ", "").replace("-", "")
 
     @classmethod
+    def get_candidate_name(cls, phone_or_id: str) -> str:
+        """Looks up candidate's verified full name associated with a phone number or ID."""
+        key = cls.normalize_identifier(phone_or_id)
+        if not key:
+            return ""
+
+        ledger = cls._load_ledger()
+        record = ledger.get(key, {})
+        if record.get("full_name"):
+            return str(record["full_name"]).strip()
+
+        # Try alternative Rwandan phone representations (+2507... vs 07...)
+        alt_key = None
+        if key.startswith("07"):
+            alt_key = "+250" + key[1:]
+        elif key.startswith("+250"):
+            alt_key = "0" + key[4:]
+        elif key.startswith("250"):
+            alt_key = "0" + key[3:]
+
+        if alt_key and alt_key in ledger and ledger[alt_key].get("full_name"):
+            return str(ledger[alt_key]["full_name"]).strip()
+
+        # Check pending payments
+        pending = cls._load_pending_payments()
+        for p in pending.values():
+            p_phone = cls.normalize_identifier(p.get("recipient_phone") or "")
+            if (p_phone == key or (alt_key and p_phone == alt_key)) and p.get("full_name"):
+                return str(p["full_name"]).strip()
+
+        # Check registered accounts
+        try:
+            from apps.accounts.models import User
+            u = User.objects.filter(phone_number=key).first()
+            if not u and alt_key:
+                u = User.objects.filter(phone_number=alt_key).first()
+            if u:
+                name = (getattr(u, "full_name", None) or f"{u.first_name} {u.last_name}").strip()
+                if name:
+                    return name
+        except Exception:
+            pass
+
+        return ""
+
+    @classmethod
+    def record_candidate_identity(cls, phone_or_id: str, full_name: str) -> None:
+        """Stores candidate's full name alongside their phone number in the credits ledger."""
+        name = (full_name or "").strip()
+        if not name:
+            return
+        key = cls.normalize_identifier(phone_or_id)
+        if not key:
+            return
+
+        ledger = cls._load_ledger()
+        record = ledger.setdefault(key, {
+            "phone_number": key,
+            "credits": 0,
+            "total_purchased": 0,
+            "total_consumed": 0,
+            "transactions": [],
+        })
+        record["full_name"] = name
+        record["updated_at"] = timezone.now().isoformat()
+
+        # Also link alternative Rwandan phone prefix if applicable
+        alt_key = None
+        if key.startswith("07"):
+            alt_key = "+250" + key[1:]
+        elif key.startswith("+250"):
+            alt_key = "0" + key[4:]
+        elif key.startswith("250"):
+            alt_key = "0" + key[3:]
+
+        if alt_key and alt_key in ledger:
+            ledger[alt_key]["full_name"] = name
+
+        cls._save_ledger(ledger)
+        logger.info("Recorded candidate identity for %s: '%s'", key, name)
+
+    @classmethod
     def get_credit_balance(cls, phone_or_id: str) -> Dict[str, Any]:
         key = cls.normalize_identifier(phone_or_id)
         ledger = cls._load_ledger()
-        record = ledger.get(key, {})
-        credits_count = record.get("credits", 0)
+        record = ledger.get(key)
+
+        alt_key = None
+        if key.startswith("07"):
+            alt_key = "+250" + key[1:]
+        elif key.startswith("+250"):
+            alt_key = "0" + key[4:]
+        elif key.startswith("250"):
+            alt_key = "0" + key[3:]
+
+        if not record and alt_key and alt_key in ledger:
+            record = ledger[alt_key]
+
+        candidate_name = cls.get_candidate_name(key)
+
+        is_user = False
+        try:
+            from apps.accounts.models import User
+            u = User.objects.filter(phone_number=key).first()
+            if not u and alt_key:
+                u = User.objects.filter(phone_number=alt_key).first()
+            if u:
+                is_user = True
+        except Exception:
+            pass
+
+        has_activity = False
+        if record:
+            has_activity = (
+                record.get("total_purchased", 0) > 0
+                or record.get("total_consumed", 0) > 0
+                or len(record.get("transactions", [])) > 0
+                or record.get("credits", 0) > 0
+                or bool(record.get("full_name"))
+            )
+
+        is_registered = bool(has_activity or is_user or candidate_name)
+        credits_count = record.get("credits", 0) if record else 0
+
         return {
             "identifier": key,
+            "is_registered": is_registered,
+            "full_name": candidate_name,
+            "candidate_name": candidate_name,
             "credits": credits_count,
-            "total_purchased": record.get("total_purchased", 0),
-            "total_consumed": record.get("total_consumed", 0),
-            "last_purchased_at": record.get("last_purchased_at"),
-            "transactions_count": len(record.get("transactions", [])),
+            "total_purchased": record.get("total_purchased", 0) if record else 0,
+            "total_consumed": record.get("total_consumed", 0) if record else 0,
+            "last_purchased_at": record.get("last_purchased_at") if record else None,
+            "transactions_count": len(record.get("transactions", [])) if record else 0,
         }
 
     @classmethod
@@ -313,6 +435,7 @@ class ExamCreditService:
         package_key: str,
         exam_count: Optional[int] = None,
         user: Optional[Any] = None,
+        full_name: str = "",
     ) -> Dict[str, Any]:
         """
         Simulates MoMo payment processing and issues exam credits to candidate account/phone.
@@ -387,6 +510,9 @@ class ExamCreditService:
             "total_consumed": 0,
             "transactions": [],
         })
+
+        if full_name:
+            record["full_name"] = str(full_name).strip()
 
         record["credits"] += count
         record["total_purchased"] += count
@@ -504,17 +630,26 @@ class ExamCreditService:
         if not key:
             raise ValueError("Phone number is required to receive exam credits.")
 
+        if full_name:
+            cls.record_candidate_identity(key, full_name)
+
         clean_paying = cls.normalize_identifier(paying_number) or key
         package_name = f"{count} Exam" if count == 1 else f"{count} Exams"
         external_id = f"SIFO-{uuid.uuid4().hex[:8].upper()}"
 
-        # Trigger MTN MoMo RequestToPay
+        # Trigger MTN MoMo RequestToPay and record pending transaction in PostgreSQL
         momo_res = PaymentService.initiate_momo_charge(
             amount=price_rwf,
             payer_phone=clean_paying,
             external_id=external_id,
             payer_message=f"SifoDrive: Pay {price_rwf} RWF for {package_name}",
             payee_note=f"SifoDrive - {key}",
+            recipient_phone=key,
+            package_key=tier_key,
+            credits_added=count,
+            user=user,
+            fee_type="PRACTICE_EXAM_CREDITS",
+            metadata={"full_name": full_name or "", "exam_count": count},
         )
 
         ref_id = momo_res["reference_id"]
@@ -550,10 +685,157 @@ class ExamCreditService:
         }
 
     @classmethod
+    def fulfill_successful_momo_payment(
+        cls,
+        reference_id: str,
+        financial_transaction_id: Optional[str] = None,
+        webhook_payload: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Idempotently fulfills exam credits upon verified MoMo payment.
+        Used by both live status polling and asynchronous webhooks.
+        """
+        ref = str(reference_id)
+        pending = cls._load_pending_payments()
+        record_info = pending.get(ref)
+
+        if not record_info:
+            # Fallback: check if already in ledger
+            ledger = cls._load_ledger()
+            for recipient, rec in ledger.items():
+                for tx in rec.get("transactions", []):
+                    if tx.get("reference_id") == ref or tx.get("tx_id", "").endswith(ref[:8].upper()):
+                        return {
+                            "reference_id": ref,
+                            "status": "SUCCESSFUL",
+                            "credits_added": tx.get("credits_added", 0),
+                            "current_balance": rec.get("credits", 0),
+                            "amount_rwf": tx.get("amount_rwf", 0),
+                            "message": "Payment confirmed! Your exam credits are ready.",
+                        }
+            return {
+                "reference_id": ref,
+                "status": "FAILED",
+                "message": "Transaction reference not found in pending payments.",
+            }
+
+        # If already completed, return without re-adding credits (Idempotency)
+        if record_info.get("status") == "COMPLETED":
+            ledger = cls._load_ledger()
+            rec = ledger.get(record_info["recipient_phone"], {})
+            return {
+                "reference_id": ref,
+                "status": "SUCCESSFUL",
+                "credits_added": record_info["credits"],
+                "current_balance": rec.get("credits", 0),
+                "amount_rwf": record_info["amount_rwf"],
+                "message": "Payment confirmed! Your exam credits are ready.",
+            }
+
+        # Fulfill the purchase
+        key = record_info["recipient_phone"]
+        count = record_info["credits"]
+        price_rwf = record_info["amount_rwf"]
+        clean_paying = record_info["paying_number"]
+        tier_key = record_info["package_key"]
+        package_name = record_info["package_name"]
+        now = timezone.now()
+        tx_id = f"MOMO-{ref[:8].upper()}"
+
+        ledger = cls._load_ledger()
+        rec = ledger.setdefault(key, {
+            "phone_number": key,
+            "user_id": record_info.get("user_id"),
+            "credits": 0,
+            "total_purchased": 0,
+            "total_consumed": 0,
+            "transactions": [],
+        })
+        if record_info.get("full_name"):
+            rec["full_name"] = str(record_info["full_name"]).strip()
+
+        rec["credits"] += count
+        rec["total_purchased"] += count
+        rec["last_purchased_at"] = now.isoformat()
+
+        tx_entry = {
+            "tx_id": tx_id,
+            "reference_id": ref,
+            "financial_transaction_id": financial_transaction_id,
+            "package": tier_key,
+            "package_name": package_name,
+            "credits_added": count,
+            "amount_rwf": price_rwf,
+            "paying_number": clean_paying,
+            "recipient_phone": key,
+            "status": "COMPLETED",
+            "created_at": now.isoformat(),
+        }
+        rec.setdefault("transactions", []).append(tx_entry)
+
+        # Map user_id if present
+        u_id = record_info.get("user_id")
+        if u_id and u_id != key:
+            ledger[u_id] = rec
+
+        cls._save_ledger(ledger)
+
+        # Mark pending as COMPLETED
+        record_info["status"] = "COMPLETED"
+        record_info["completed_at"] = now.isoformat()
+        if financial_transaction_id:
+            record_info["financial_transaction_id"] = financial_transaction_id
+        if webhook_payload:
+            record_info["webhook_payload"] = webhook_payload
+        cls._save_pending_payments(pending)
+
+        logger.info(
+            "Fulfilled MoMo purchase: %d credits added to %s (ref: %s, amount: %d RWF)",
+            count, key, ref, price_rwf
+        )
+
+        return {
+            "reference_id": ref,
+            "status": "SUCCESSFUL",
+            "credits_added": count,
+            "current_balance": rec["credits"],
+            "amount_rwf": price_rwf,
+            "tx_id": tx_id,
+            "financial_transaction_id": financial_transaction_id,
+            "message": f"Payment of {price_rwf:,} RWF confirmed! {count} exam credits have been added.",
+        }
+
+    @classmethod
+    def mark_payment_failed(
+        cls,
+        reference_id: str,
+        reason: Optional[str] = None,
+        webhook_payload: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Marks a pending payment as FAILED."""
+        ref = str(reference_id)
+        pending = cls._load_pending_payments()
+        record_info = pending.get(ref)
+        if record_info:
+            record_info["status"] = "FAILED"
+            record_info["failed_at"] = timezone.now().isoformat()
+            if reason:
+                record_info["failed_reason"] = reason
+            if webhook_payload:
+                record_info["webhook_payload"] = webhook_payload
+            cls._save_pending_payments(pending)
+
+        return {
+            "reference_id": ref,
+            "status": "FAILED",
+            "message": reason or "Payment was rejected or timed out on your phone.",
+        }
+
+    @classmethod
     def check_payment_status(cls, reference_id: str) -> Dict[str, Any]:
         """
         Polls MTN MoMo for payment confirmation.
-        Once SUCCESSFUL, automatically adds credits to the recipient phone ledger.
+        Once SUCCESSFUL, automatically adds credits to the recipient phone ledger and PostgreSQL.
         """
         from apps.payments.services.payment_service import PaymentService
 
@@ -598,83 +880,27 @@ class ExamCreditService:
         raw_status = (momo_status.get("status") or "PENDING").upper()
 
         if raw_status == "SUCCESSFUL":
-            # Fulfill the purchase
-            key = record_info["recipient_phone"]
-            count = record_info["credits"]
-            price_rwf = record_info["amount_rwf"]
-            clean_paying = record_info["paying_number"]
-            tier_key = record_info["package_key"]
-            package_name = record_info["package_name"]
-            now = timezone.now()
-            tx_id = f"MOMO-{ref[:8].upper()}"
-
-            ledger = cls._load_ledger()
-            rec = ledger.setdefault(key, {
-                "phone_number": key,
-                "user_id": record_info.get("user_id"),
-                "credits": 0,
-                "total_purchased": 0,
-                "total_consumed": 0,
-                "transactions": [],
-            })
-
-            rec["credits"] += count
-            rec["total_purchased"] += count
-            rec["last_purchased_at"] = now.isoformat()
-
-            tx_entry = {
-                "tx_id": tx_id,
-                "reference_id": ref,
-                "financial_transaction_id": momo_status.get("financial_transaction_id"),
-                "package": tier_key,
-                "package_name": package_name,
-                "credits_added": count,
-                "amount_rwf": price_rwf,
-                "paying_number": clean_paying,
-                "recipient_phone": key,
-                "status": "COMPLETED",
-                "created_at": now.isoformat(),
-            }
-            rec.setdefault("transactions", []).append(tx_entry)
-
-            # Map user_id if present
-            u_id = record_info.get("user_id")
-            if u_id and u_id != key:
-                ledger[u_id] = rec
-
-            cls._save_ledger(ledger)
-
-            # Mark pending as COMPLETED
-            record_info["status"] = "COMPLETED"
-            record_info["completed_at"] = now.isoformat()
-            record_info["financial_transaction_id"] = momo_status.get("financial_transaction_id")
-            cls._save_pending_payments(pending)
-
-            logger.info(
-                "Fulfilled MoMo purchase: %d credits added to %s (ref: %s, amount: %d RWF)",
-                count, key, ref, price_rwf
+            financial_tx_id = momo_status.get("financial_transaction_id")
+            result = cls.fulfill_successful_momo_payment(
+                reference_id=ref,
+                financial_transaction_id=financial_tx_id,
             )
-
-            return {
-                "reference_id": ref,
-                "status": "SUCCESSFUL",
-                "credits_added": count,
-                "current_balance": rec["credits"],
-                "amount_rwf": price_rwf,
-                "tx_id": tx_id,
-                "financial_transaction_id": momo_status.get("financial_transaction_id"),
-                "message": f"Payment of {price_rwf} RWF confirmed! {count} exam credits have been added.",
-            }
+            # Record success in PostgreSQL
+            PaymentService.record_successful_transaction(
+                reference_id=ref,
+                financial_transaction_id=financial_tx_id,
+            )
+            return result
 
         elif raw_status == "FAILED":
-            record_info["status"] = "FAILED"
-            record_info["failed_at"] = timezone.now().isoformat()
-            cls._save_pending_payments(pending)
-            return {
-                "reference_id": ref,
-                "status": "FAILED",
-                "message": momo_status.get("reason") or "Payment was rejected or timed out on your phone.",
-            }
+            reason = momo_status.get("reason") or "Payment was rejected or timed out on your phone."
+            result = cls.mark_payment_failed(reference_id=ref, reason=reason)
+            # Record failure in PostgreSQL
+            PaymentService.record_failed_transaction(
+                reference_id=ref,
+                reason=reason,
+            )
+            return result
 
         return {
             "reference_id": ref,

@@ -47,6 +47,14 @@ class MTNMomoClient:
         else:
             self.currency = configured_currency
 
+        # Optional production callback URL
+        callback_url = (momo_cfg.get("CALLBACK_URL") or "").strip()
+        if not callback_url:
+            host = (momo_cfg.get("CALLBACK_HOST") or "").rstrip("/")
+            if host and not host.startswith("http://localhost") and not host.startswith("http://127.0.0.1"):
+                callback_url = f"{host}/api/v1/payments/momo/callback/"
+        self.callback_url = callback_url
+
         self._cached_token: Optional[str] = None
         self._token_expires_at: float = 0.0
 
@@ -140,6 +148,8 @@ class MTNMomoClient:
             "Ocp-Apim-Subscription-Key": self.subscription_key,
             "Content-Type": "application/json",
         }
+        if self.callback_url:
+            headers["X-Callback-Url"] = self.callback_url
 
         payload = {
             "amount": amount_str,

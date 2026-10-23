@@ -214,6 +214,7 @@ class ExamEngineService:
         exam_id: Optional[str] = None,
         track: str = "STUDENT",
         duration_minutes: int = 20,
+        student_name: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Initiates a 20-minute exam attempt with 20 fresh randomly pulled questions.
@@ -239,7 +240,13 @@ class ExamEngineService:
 
         session_id = str(uuid.uuid4())
         user_id = str(getattr(student, "id", student))
-        user_name = getattr(student, "full_name", None) or getattr(student, "phone_number", None) or "Candidate"
+        from apps.examinations.services.credit_service import ExamCreditService
+        user_name = (
+            student_name
+            or getattr(student, "full_name", None)
+            or ExamCreditService.get_candidate_name(user_id)
+            or "Candidate"
+        )
 
         session_obj = {
             "id": session_id,

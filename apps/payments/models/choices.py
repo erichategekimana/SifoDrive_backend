@@ -12,6 +12,7 @@ PROVIDERS = [
 FEE_TYPES = [
     ('STUDENT_TUITION', 'Student Tuition Fee'),
     ('GUEST_EXAM_PASS', 'Guest Exam Single Pass'),
+    ('PRACTICE_EXAM_CREDITS', 'Practice Exam Credits'),
     ('ENTERPRISE_LICENSE', 'Enterprise Lab License'),
     ('IREMBO_CONCIERGE', 'Irembo Concierge Fee'),
 ]

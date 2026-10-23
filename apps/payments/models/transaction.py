@@ -15,17 +15,21 @@ class Transaction(BaseModel):
     FEE_TYPES = FEE_TYPES
     STATUSES = STATUSES
 
-    payer = models.ForeignKey('accounts.User', on_delete=models.CASCADE, related_name='transactions')
-    provider = models.CharField(_('Provider'), max_length=10, choices=PROVIDERS)
-    fee_type = models.CharField(_('Fee Type'), max_length=25, choices=FEE_TYPES)
+    payer = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='transactions')
+    recipient_phone = models.CharField(_('Recipient Phone'), max_length=20, blank=True)
+    provider = models.CharField(_('Provider'), max_length=10, choices=PROVIDERS, default='MTN')
+    fee_type = models.CharField(_('Fee Type'), max_length=30, choices=FEE_TYPES)
     amount = models.DecimalField(_('Amount (RWF)'), max_digits=12, decimal_places=2)
     currency = models.CharField(_('Currency'), max_length=5, default='RWF')
     phone_number = models.CharField(_('Payer Phone'), max_length=20)
     status = models.CharField(_('Status'), max_length=15, choices=STATUSES, default='INITIATED', db_index=True)
     provider_transaction_id = models.CharField(_('Provider TX ID'), max_length=200, blank=True, unique=True, null=True)
     idempotency_key = models.UUIDField(_('Idempotency Key'), unique=True)
+    package_key = models.CharField(_('Package Key'), max_length=50, blank=True)
+    credits_added = models.PositiveIntegerField(_('Credits Added'), default=0)
     webhook_payload = models.JSONField(_('Webhook Payload'), null=True, blank=True)
     failed_reason = models.CharField(_('Failure Reason'), max_length=500, blank=True)
+    metadata = models.JSONField(_('Metadata'), null=True, blank=True)
     completed_at = models.DateTimeField(_('Completed At'), null=True, blank=True)
 
     class Meta(BaseModel.Meta):

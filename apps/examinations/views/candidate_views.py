@@ -89,7 +89,7 @@ def _format_active_session(session: Dict[str, Any]) -> Dict[str, Any]:
         })
 
     # Retrieve exam title if available
-    exam_title = "Official Rwanda Traffic Theory Examination"
+    exam_title = "Traffic Examination"
     exam_id = session.get("exam_id")
     if exam_id:
         exam = ExamService.get_exam(str(exam_id))
@@ -150,15 +150,22 @@ def _format_results_session(session: Dict[str, Any]) -> Dict[str, Any]:
             "explanation_french": frozen.get("explanation_french", ""),
         })
 
-    exam_title = "Official Rwanda Traffic Theory Examination"
+    exam_title = "Traffic Examination"
     exam_id = session.get("exam_id")
     if exam_id:
         exam = ExamService.get_exam(str(exam_id))
         if exam:
             exam_title = exam.get("title", exam_title)
 
+    cand_phone = str(session.get("student_id") or "")
+    cand_name = session.get("student_name")
+    if not cand_name or cand_name == "Candidate" or cand_name == cand_phone:
+        cand_name = ExamCreditService.get_candidate_name(cand_phone) or "Candidate"
+
     return {
         "id": session.get("id"),
+        "candidate_name": cand_name,
+        "candidate_phone": cand_phone,
         "exam_id": exam_id,
         "exam_title": exam_title,
         "track": session.get("track", "STUDENT"),
@@ -328,7 +335,8 @@ class CandidateSessionDetailView(SuccessResponseMixin, APIView):
                 except Exception:
                     pass
 
-        if session.get("status") in ("BOARD_REVIEW", "TRAINING_REVIEW", "SYSTEM_REVIEW", "APPROVED", "PUBLISHED", "REJECTED"):
+        is_review = request.query_params.get("review") == "true"
+        if is_review or session.get("score") is not None or session.get("status") in ("BOARD_REVIEW", "TRAINING_REVIEW", "SYSTEM_REVIEW", "APPROVED", "PUBLISHED", "REJECTED", "SUBMITTED", "EXPIRED"):
             formatted = _format_results_session(session)
         else:
             formatted = _format_active_session(session)
@@ -493,7 +501,7 @@ class PublicExamCreditsView(SuccessResponseMixin, APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        phone = request.query_params.get("phone_number")
+        phone = (request.query_params.get("phone_number") or "").strip()
         if not phone and request.user and request.user.is_authenticated:
             phone = getattr(request.user, "phone_number", None) or str(request.user.id)
 
@@ -504,10 +512,65 @@ class PublicExamCreditsView(SuccessResponseMixin, APIView):
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        balance = ExamCreditService.get_credit_balance(phone)
+        clean_digits = "".join(ch for ch in phone if ch.isdigit())
+        if clean_digits.startswith("250") and len(clean_digits) == 12:
+            clean_digits = "0" + clean_digits[3:]
+
+        if len(clean_digits) != 10:
+            return self.error_response(
+                code="INVALID_PHONE_LENGTH",
+                message="Phone number must be exactly 10 digits.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        balance = ExamCreditService.get_credit_balance(clean_digits)
         return self.success_response(
             data=balance,
             message="Exam credit balance retrieved.",
+        )
+
+
+class PublicExamHistoryView(SuccessResponseMixin, APIView):
+    """Retrieves past completed exam attempts for a candidate phone number or user."""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        phone = request.query_params.get("phone_number")
+        if not phone and request.user and request.user.is_authenticated:
+            phone = getattr(request.user, "phone_number", None) or str(request.user.id)
+
+        if not phone:
+            return self.error_response(
+                code="PHONE_REQUIRED",
+                message="Phone number is required to look up exam history.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        clean_phone = ExamCreditService.normalize_identifier(phone)
+        all_sessions = ExamEngineService.list_all_sessions()
+
+        user_id_str = str(request.user.id) if request.user and request.user.is_authenticated else None
+        candidate_sessions = []
+        for s in all_sessions:
+            s_student = ExamCreditService.normalize_identifier(str(s.get("student_id") or ""))
+            s_user = str(s.get("user_id") or "")
+            if s_student == clean_phone or (user_id_str and s_user == user_id_str):
+                candidate_sessions.append({
+                    "id": s.get("id"),
+                    "track": s.get("track", "PUBLIC"),
+                    "status": s.get("status"),
+                    "score": s.get("score"),
+                    "total_questions": s.get("total_questions", 20),
+                    "passing_score": s.get("passing_score", 12),
+                    "passed": s.get("passed", False),
+                    "started_at": s.get("started_at"),
+                    "submitted_at": s.get("submitted_at"),
+                    "duration_minutes": s.get("duration_minutes", 20),
+                })
+
+        return self.success_response(
+            data=candidate_sessions,
+            message="Candidate exam history retrieved successfully.",
         )
 
 
@@ -533,6 +596,9 @@ class PublicExamBuyView(SuccessResponseMixin, APIView):
                 message="Phone number is required to receive exam credits.",
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
+
+        if data.get("full_name"):
+            ExamCreditService.record_candidate_identity(phone, data["full_name"])
 
         try:
             result = ExamCreditService.initiate_momo_purchase(
@@ -614,11 +680,13 @@ class PublicExamStartView(SuccessResponseMixin, APIView):
 
         track = "GUEST" if user else "PUBLIC"
         student_obj = user or phone
+        cand_name = ExamCreditService.get_candidate_name(phone)
         session = ExamEngineService.start_exam_session(
             student=student_obj,
             exam_id=None,
             track=track,
             duration_minutes=20,
+            student_name=cand_name,
         )
 
         formatted = _format_active_session(session)
@@ -672,6 +740,9 @@ class PublicExamOTPRequestView(SuccessResponseMixin, APIView):
             send_otp_sms_task.delay(normalized_phone, raw_otp, "PUBLIC_EXAM_PURCHASE")
         except Exception as exc:
             logger.error("Failed to queue OTP SMS: %s", exc)
+
+        if full_name:
+            ExamCreditService.record_candidate_identity(normalized_phone, full_name)
 
         response_data = {
             "phone_number": normalized_phone,

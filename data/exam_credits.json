@@ -57,9 +57,9 @@
   "0780842458": {
     "phone_number": "0780842458",
     "user_id": null,
-    "credits": 1,
-    "total_purchased": 2,
-    "total_consumed": 1,
+    "credits": 4,
+    "total_purchased": 12,
+    "total_consumed": 8,
     "transactions": [
       {
         "tx_id": "MOMO-CD77AE2D4D",
@@ -84,9 +84,71 @@
         "recipient_phone": "0780842458",
         "status": "COMPLETED",
         "created_at": "2026-10-21T11:15:57.063782+00:00"
+      },
+      {
+        "tx_id": "MOMO-6CE3A306",
+        "reference_id": "6ce3a306-2d03-459c-a0ab-0eb5f874702c",
+        "financial_transaction_id": "MOMO-LIVE-9876543210",
+        "package": "BASIC",
+        "package_name": "2 Exams",
+        "credits_added": 2,
+        "amount_rwf": 200,
+        "paying_number": "0780842458",
+        "recipient_phone": "0780842458",
+        "status": "COMPLETED",
+        "created_at": "2026-10-22T04:45:24.646873+00:00"
+      },
+      {
+        "tx_id": "MOMO-94C6A00A",
+        "reference_id": "94c6a00a-3af1-4c44-bad4-dde19eaf02d8",
+        "financial_transaction_id": "632489764",
+        "package": "BASIC",
+        "package_name": "1 Exam",
+        "credits_added": 1,
+        "amount_rwf": 100,
+        "paying_number": "0780842458",
+        "recipient_phone": "0780842458",
+        "status": "COMPLETED",
+        "created_at": "2026-10-22T05:14:35.389365+00:00"
+      },
+      {
+        "tx_id": "MOMO-99C1D102",
+        "reference_id": "99c1d102-9e44-4f16-9fcf-035734f9da0b",
+        "financial_transaction_id": "2059494959",
+        "package": "BASIC",
+        "package_name": "1 Exam",
+        "credits_added": 1,
+        "amount_rwf": 100,
+        "paying_number": "0780842458",
+        "recipient_phone": "0780842458",
+        "status": "COMPLETED",
+        "created_at": "2026-10-22T05:57:38.729785+00:00"
+      },
+      {
+        "tx_id": "MOMO-F5A01FEC",
+        "reference_id": "f5a01fec-cd6a-415a-98b8-3b832ad4bf73",
+        "financial_transaction_id": "1086052387",
+        "package": "REGULAR",
+        "package_name": "6 Exams",
+        "credits_added": 6,
+        "amount_rwf": 480,
+        "paying_number": "0780842458",
+        "recipient_phone": "0780842458",
+        "status": "COMPLETED",
+        "created_at": "2026-10-22T16:38:08.000413+00:00"
       }
     ],
-    "last_purchased_at": "2026-10-21T11:15:57.063782+00:00",
-    "updated_at": "2026-10-21T08:43:53.740733+00:00"
+    "last_purchased_at": "2026-10-22T16:38:08.000413+00:00",
+    "updated_at": "2026-10-22T19:33:54.756882+00:00",
+    "full_name": "Developer One"
+  },
+  "+250780842458": {
+    "phone_number": "+250780842458",
+    "credits": 0,
+    "total_purchased": 0,
+    "total_consumed": 0,
+    "transactions": [],
+    "full_name": "Developer One",
+    "updated_at": "2026-10-22T16:36:56.331436+00:00"
   }
 }

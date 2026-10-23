@@ -14,14 +14,18 @@ class TransactionSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'payer',
+            'recipient_phone',
             'provider',
             'fee_type',
+            'package_key',
+            'credits_added',
             'amount',
             'currency',
             'phone_number',
             'status',
             'provider_transaction_id',
+            'idempotency_key',
             'completed_at',
             'created_at',
         ]
-        read_only_fields = ['id', 'status', 'provider_transaction_id', 'completed_at', 'created_at']
+        read_only_fields = ['id', 'status', 'provider_transaction_id', 'idempotency_key', 'completed_at', 'created_at']

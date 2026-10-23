@@ -29,6 +29,7 @@ from apps.examinations.views import (
     PublicCertificateVerifyView,
     PublicExamBuyView,
     PublicExamCreditsView,
+    PublicExamHistoryView,
     PublicExamOTPRequestView,
     PublicExamOTPVerifyView,
     PublicExamPackagesView,
@@ -80,6 +81,7 @@ urlpatterns = [
     # ── Guest & Public Paid Examination Endpoints ───────────────────────────
     path("public/packages/", PublicExamPackagesView.as_view(), name="public_exam_packages"),
     path("public/credits/", PublicExamCreditsView.as_view(), name="public_exam_credits"),
+    path("public/history/", PublicExamHistoryView.as_view(), name="public_exam_history"),
     path("public/otp/request/", PublicExamOTPRequestView.as_view(), name="public_exam_otp_request"),
     path("public/otp/verify/", PublicExamOTPVerifyView.as_view(), name="public_exam_otp_verify"),
     path("public/buy/", PublicExamBuyView.as_view(), name="public_exam_buy"),
