@@ -55,6 +55,37 @@ class ExamEngineService:
     PASSING_SCORE = 12
     POINTS_PER_QUESTION = 1
 
+    EXAM_SESSION_SALT = "sifo-exam-session-salt-v1"
+    EXAM_SESSION_MAX_AGE = 60 * 60 * 24  # 24 hours valid
+
+    @classmethod
+    def generate_session_token(cls, session_id: str, candidate_identifier: str = "") -> str:
+        """Issues a cryptographically signed, tamper-proof session token bound to a specific exam session."""
+        from django.core import signing
+        payload = {
+            "session_id": str(session_id),
+            "candidate_id": str(candidate_identifier or ""),
+            "type": "exam_session",
+            "iat": timezone.now().isoformat(),
+        }
+        return signing.dumps(payload, salt=cls.EXAM_SESSION_SALT)
+
+    @classmethod
+    def verify_session_token(cls, token: Optional[str], session_id: str) -> bool:
+        """Verifies if the provided session token is cryptographically authentic, unexpired, and matches session_id."""
+        from django.core import signing
+        if not token or not isinstance(token, str):
+            return False
+        try:
+            payload = signing.loads(token.strip(), salt=cls.EXAM_SESSION_SALT, max_age=cls.EXAM_SESSION_MAX_AGE)
+            if not isinstance(payload, dict) or payload.get("type") != "exam_session":
+                return False
+            if str(payload.get("session_id")) != str(session_id):
+                return False
+            return True
+        except Exception:
+            return False
+
     @classmethod
     def _load_questions_pool_from_file(cls) -> List[Dict[str, Any]]:
         """Fallback question pool loader from data/parsed_questions.json."""
@@ -248,8 +279,11 @@ class ExamEngineService:
             or "Candidate"
         )
 
+        session_token = cls.generate_session_token(session_id, user_id)
+
         session_obj = {
             "id": session_id,
+            "session_token": session_token,
             "student_id": user_id,
             "student_name": user_name,
             "exam_id": str(exam_id) if exam_id else None,

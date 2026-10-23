@@ -24,6 +24,43 @@ PENDING_PAYMENTS_FILE = os.path.join(settings.BASE_DIR, "data", "pending_payment
 class ExamCreditService:
     """Manages practice exam credits and MoMo purchases for Guest/Public users."""
 
+    CANDIDATE_ACCESS_SALT = "sifo-candidate-access-salt-v1"
+    CANDIDATE_ACCESS_MAX_AGE = 60 * 60 * 12  # 12 hours valid
+
+    @classmethod
+    def generate_candidate_access_token(cls, phone_or_id: str) -> str:
+        """Issues a cryptographically signed, tamper-proof access token for a candidate."""
+        from django.core import signing
+        key = cls.normalize_identifier(phone_or_id)
+        payload = {
+            "sub": key,
+            "type": "candidate_access",
+            "iat": timezone.now().isoformat(),
+        }
+        return signing.dumps(payload, salt=cls.CANDIDATE_ACCESS_SALT)
+
+    @classmethod
+    def verify_candidate_access_token(cls, token: Optional[str], expected_phone: Optional[str] = None) -> bool:
+        """Verifies if the provided candidate access token is cryptographically authentic and not expired."""
+        from django.core import signing
+        if not token or not isinstance(token, str):
+            return False
+        try:
+            payload = signing.loads(token.strip(), salt=cls.CANDIDATE_ACCESS_SALT, max_age=cls.CANDIDATE_ACCESS_MAX_AGE)
+            if not isinstance(payload, dict) or payload.get("type") != "candidate_access":
+                return False
+            if expected_phone:
+                expected_key = cls.normalize_identifier(expected_phone)
+                token_phone = cls.normalize_identifier(payload.get("sub", ""))
+                if expected_key != token_phone:
+                    clean_expected = "".join(ch for ch in expected_key if ch.isdigit())[-9:]
+                    clean_token = "".join(ch for ch in token_phone if ch.isdigit())[-9:]
+                    if not clean_expected or clean_expected != clean_token:
+                        return False
+            return True
+        except Exception:
+            return False
+
     PACKAGES = {
         "BASIC": {
             "key": "BASIC",
@@ -299,7 +336,7 @@ class ExamCreditService:
 
         ledger = cls._load_ledger()
         record = ledger.get(key, {})
-        if record.get("full_name"):
+        if record.get("full_name") and "***" not in str(record["full_name"]):
             return str(record["full_name"]).strip()
 
         # Try alternative Rwandan phone representations (+2507... vs 07...)
@@ -311,7 +348,7 @@ class ExamCreditService:
         elif key.startswith("250"):
             alt_key = "0" + key[3:]
 
-        if alt_key and alt_key in ledger and ledger[alt_key].get("full_name"):
+        if alt_key and alt_key in ledger and ledger[alt_key].get("full_name") and "***" not in str(ledger[alt_key]["full_name"]):
             return str(ledger[alt_key]["full_name"]).strip()
 
         # Check pending payments
@@ -338,9 +375,8 @@ class ExamCreditService:
 
     @classmethod
     def record_candidate_identity(cls, phone_or_id: str, full_name: str) -> None:
-        """Stores candidate's full name alongside their phone number in the credits ledger."""
         name = (full_name or "").strip()
-        if not name:
+        if not name or "***" in name:
             return
         key = cls.normalize_identifier(phone_or_id)
         if not key:
@@ -711,6 +747,7 @@ class ExamCreditService:
                             "credits_added": tx.get("credits_added", 0),
                             "current_balance": rec.get("credits", 0),
                             "amount_rwf": tx.get("amount_rwf", 0),
+                            "access_token": cls.generate_candidate_access_token(recipient),
                             "message": "Payment confirmed! Your exam credits are ready.",
                         }
             return {
@@ -729,6 +766,7 @@ class ExamCreditService:
                 "credits_added": record_info["credits"],
                 "current_balance": rec.get("credits", 0),
                 "amount_rwf": record_info["amount_rwf"],
+                "access_token": cls.generate_candidate_access_token(record_info["recipient_phone"]),
                 "message": "Payment confirmed! Your exam credits are ready.",
             }
 
@@ -802,6 +840,7 @@ class ExamCreditService:
             "amount_rwf": price_rwf,
             "tx_id": tx_id,
             "financial_transaction_id": financial_transaction_id,
+            "access_token": cls.generate_candidate_access_token(key),
             "message": f"Payment of {price_rwf:,} RWF confirmed! {count} exam credits have been added.",
         }
 

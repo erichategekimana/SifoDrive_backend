@@ -57,9 +57,9 @@
   "0780842458": {
     "phone_number": "0780842458",
     "user_id": null,
-    "credits": 4,
+    "credits": 0,
     "total_purchased": 12,
-    "total_consumed": 8,
+    "total_consumed": 12,
     "transactions": [
       {
         "tx_id": "MOMO-CD77AE2D4D",
@@ -139,7 +139,7 @@
       }
     ],
     "last_purchased_at": "2026-10-22T16:38:08.000413+00:00",
-    "updated_at": "2026-10-22T19:33:54.756882+00:00",
+    "updated_at": "2026-10-23T08:09:42.016444+00:00",
     "full_name": "Developer One"
   },
   "+250780842458": {
@@ -149,6 +149,6 @@
     "total_consumed": 0,
     "transactions": [],
     "full_name": "Developer One",
-    "updated_at": "2026-10-22T16:36:56.331436+00:00"
+    "updated_at": "2026-10-23T06:48:31.194026+00:00"
   }
 }

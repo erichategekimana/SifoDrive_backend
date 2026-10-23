@@ -96,8 +96,15 @@ def _format_active_session(session: Dict[str, Any]) -> Dict[str, Any]:
         if exam:
             exam_title = exam.get("title", exam_title)
 
+    session_token = session.get("session_token")
+    if not session_token:
+        session_token = ExamEngineService.generate_session_token(
+            session.get("id"), str(session.get("student_id") or "")
+        )
+
     return {
         "id": session.get("id"),
+        "session_token": session_token,
         "exam_id": exam_id,
         "exam_title": exam_title,
         "track": session.get("track", "STUDENT"),
@@ -162,8 +169,15 @@ def _format_results_session(session: Dict[str, Any]) -> Dict[str, Any]:
     if not cand_name or cand_name == "Candidate" or cand_name == cand_phone:
         cand_name = ExamCreditService.get_candidate_name(cand_phone) or "Candidate"
 
+    session_token = session.get("session_token")
+    if not session_token:
+        session_token = ExamEngineService.generate_session_token(
+            session.get("id"), str(session.get("student_id") or "")
+        )
+
     return {
         "id": session.get("id"),
+        "session_token": session_token,
         "candidate_name": cand_name,
         "candidate_phone": cand_phone,
         "exam_id": exam_id,
@@ -180,6 +194,95 @@ def _format_results_session(session: Dict[str, Any]) -> Dict[str, Any]:
         "violation_count": session.get("violation_count", 0),
         "questions": formatted_questions,
     }
+
+
+def _is_session_authorized(request, session: Dict[str, Any]) -> bool:
+    """
+    Validates whether the incoming request is authorized to interact with the given exam session.
+    Allowed principals:
+      1. Platform Staff, Superuser, Admin, Board Reviewer, or Head of Training.
+      2. Authenticated student whose user.id or phone_number matches session.student_id.
+      3. Possessor of a valid cryptographic session_token (via X-Exam-Token header, Bearer token, or query param).
+    """
+    if not session:
+        return False
+
+    user = request.user
+    if user and user.is_authenticated:
+        if user.is_staff or getattr(user, "is_superuser", False) or getattr(user, "role", "") in (
+            "SYSTEM_ADMIN", "ADMIN", "SUPERADMIN", "BOARD_REVIEWER", "HEAD_OF_TRAINING"
+        ):
+            return True
+        student_id = str(session.get("student_id") or "")
+        if str(user.id) == student_id or getattr(user, "phone_number", None) == student_id:
+            return True
+
+    # Check for session token in headers, query params, or body
+    token = request.META.get("HTTP_X_EXAM_TOKEN")
+    if not token:
+        auth_header = request.META.get("HTTP_AUTHORIZATION", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:].strip()
+    if not token:
+        token = request.query_params.get("token") or request.query_params.get("session_token")
+    if not token and hasattr(request, "data") and isinstance(request.data, dict):
+        token = request.data.get("token") or request.data.get("session_token")
+
+    if token and ExamEngineService.verify_session_token(token, str(session.get("id"))):
+        return True
+
+    # 4. Check candidate phone or candidate access token matching the session
+    session_student = str(session.get("student_id") or "")
+    candidate_phone = request.query_params.get("phone") or request.query_params.get("phone_number")
+    if candidate_phone and session_student:
+        norm_req = ExamCreditService.normalize_identifier(candidate_phone)
+        norm_sess = ExamCreditService.normalize_identifier(session_student)
+        if norm_req and norm_sess and (norm_req == norm_sess or norm_req[-9:] == norm_sess[-9:]):
+            return True
+
+    cand_token = request.META.get("HTTP_X_CANDIDATE_TOKEN")
+    if cand_token and session_student and ExamCreditService.verify_candidate_access_token(cand_token, session_student):
+        return True
+
+    return False
+
+
+def _is_candidate_authorized(request, phone: str) -> bool:
+    """
+    Validates whether the incoming request is authorized to manage or spend credits for a candidate phone.
+    Allowed principals:
+      1. Platform Staff, Superuser, or Admin.
+      2. Authenticated user matching the phone number.
+      3. Possessor of a valid cryptographic candidate access_token (issued upon OTP verification or MoMo payment).
+    """
+    clean_phone = ExamCreditService.normalize_identifier(phone)
+    if not clean_phone:
+        return False
+
+    user = request.user
+    if user and user.is_authenticated:
+        user_phone = ExamCreditService.normalize_identifier(getattr(user, "phone_number", "") or str(user.id))
+        if clean_phone == user_phone or clean_phone[-9:] == user_phone[-9:]:
+            return True
+        if user.is_staff or getattr(user, "is_superuser", False) or getattr(user, "role", "") in (
+            "SYSTEM_ADMIN", "ADMIN", "SUPERADMIN"
+        ):
+            return True
+
+    token = request.META.get("HTTP_X_CANDIDATE_TOKEN")
+    if not token:
+        auth_header = request.META.get("HTTP_AUTHORIZATION", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:].strip()
+    if not token:
+        token = request.query_params.get("token") or request.query_params.get("access_token")
+    if not token and hasattr(request, "data") and isinstance(request.data, dict):
+        token = request.data.get("access_token") or request.data.get("token")
+
+    if token and ExamCreditService.verify_candidate_access_token(token, clean_phone):
+        return True
+
+    return False
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -322,6 +425,13 @@ class CandidateSessionDetailView(SuccessResponseMixin, APIView):
                 status_code=status.HTTP_404_NOT_FOUND,
             )
 
+        if not _is_session_authorized(request, session):
+            return self.error_response(
+                code="SESSION_UNAUTHORIZED",
+                message="Unauthorized access to this examination session. Session verification token is required.",
+                status_code=status.HTTP_401_UNAUTHORIZED,
+            )
+
         # Check if active session expired
         if session.get("status") == "ACTIVE":
             now = timezone.now()
@@ -352,6 +462,21 @@ class CandidateSessionAnswerView(SuccessResponseMixin, APIView):
     permission_classes = [AllowAny]
 
     def post(self, request, session_id):
+        session = ExamEngineService.get_session(str(session_id))
+        if not session:
+            return self.error_response(
+                code="SESSION_NOT_FOUND",
+                message="Examination session not found.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not _is_session_authorized(request, session):
+            return self.error_response(
+                code="SESSION_UNAUTHORIZED",
+                message="Unauthorized to submit answers for this examination session.",
+                status_code=status.HTTP_401_UNAUTHORIZED,
+            )
+
         serializer = RecordAnswerSerializer(data=request.data)
         if not serializer.is_valid():
             return self.error_response(
@@ -391,6 +516,21 @@ class CandidateSessionProctorEventView(SuccessResponseMixin, APIView):
     permission_classes = [AllowAny]
 
     def post(self, request, session_id):
+        session = ExamEngineService.get_session(str(session_id))
+        if not session:
+            return self.error_response(
+                code="SESSION_NOT_FOUND",
+                message="Examination session not found.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not _is_session_authorized(request, session):
+            return self.error_response(
+                code="SESSION_UNAUTHORIZED",
+                message="Unauthorized to log proctoring telemetry for this examination session.",
+                status_code=status.HTTP_401_UNAUTHORIZED,
+            )
+
         serializer = ProctorEventInputSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
@@ -421,9 +561,24 @@ class CandidateSessionSubmitView(SuccessResponseMixin, APIView):
     permission_classes = [AllowAny]
 
     def post(self, request, session_id):
+        session = ExamEngineService.get_session(str(session_id))
+        if not session:
+            return self.error_response(
+                code="SESSION_NOT_FOUND",
+                message="Examination session not found.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not _is_session_authorized(request, session):
+            return self.error_response(
+                code="SESSION_UNAUTHORIZED",
+                message="Unauthorized to submit this examination session.",
+                status_code=status.HTTP_401_UNAUTHORIZED,
+            )
+
         try:
-            session = ExamEngineService.grade_session(str(session_id))
-            formatted = _format_results_session(session)
+            graded = ExamEngineService.grade_session(str(session_id))
+            formatted = _format_results_session(graded)
             return self.success_response(
                 data=formatted,
                 message="Examination successfully submitted and graded.",
@@ -447,6 +602,13 @@ class CandidateSessionResultsView(SuccessResponseMixin, APIView):
                 code="SESSION_NOT_FOUND",
                 message="Examination session not found.",
                 status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not _is_session_authorized(request, session):
+            return self.error_response(
+                code="SESSION_UNAUTHORIZED",
+                message="Unauthorized to view results for this examination session.",
+                status_code=status.HTTP_401_UNAUTHORIZED,
             )
 
         formatted = _format_results_session(session)
@@ -523,7 +685,22 @@ class PublicExamCreditsView(SuccessResponseMixin, APIView):
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        balance = ExamCreditService.get_credit_balance(clean_digits)
+        is_auth = _is_candidate_authorized(request, clean_digits)
+        if not is_auth:
+            return self.success_response(
+                data={
+                    "identifier": clean_digits,
+                    "full_name": None,
+                    "candidate_name": None,
+                    "credits": 0,
+                    "is_authorized": False,
+                },
+                message="Unauthorized access to candidate details.",
+            )
+
+        balance = dict(ExamCreditService.get_credit_balance(clean_digits))
+        balance["is_authorized"] = True
+
         return self.success_response(
             data=balance,
             message="Exam credit balance retrieved.",
@@ -547,6 +724,15 @@ class PublicExamHistoryView(SuccessResponseMixin, APIView):
             )
 
         clean_phone = ExamCreditService.normalize_identifier(phone)
+
+        # Enforce candidate authorization before disclosing exam history
+        if not _is_candidate_authorized(request, clean_phone):
+            return self.error_response(
+                code="CANDIDATE_AUTH_REQUIRED",
+                message="Candidate verification required to view exam attempt history.",
+                status_code=status.HTTP_401_UNAUTHORIZED,
+            )
+
         all_sessions = ExamEngineService.list_all_sessions()
 
         user_id_str = str(request.user.id) if request.user and request.user.is_authenticated else None
@@ -662,6 +848,14 @@ class PublicExamStartView(SuccessResponseMixin, APIView):
                 code="PHONE_REQUIRED",
                 message="Phone number is required to start a practice exam.",
                 status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Enforce candidate identity authorization before consuming credit
+        if not _is_candidate_authorized(request, phone):
+            return self.error_response(
+                code="CANDIDATE_AUTH_REQUIRED",
+                message="Candidate identity verification required. Please verify your phone number via SMS OTP before starting an exam attempt.",
+                status_code=status.HTTP_401_UNAUTHORIZED,
             )
 
         # Attempt to consume 1 credit
@@ -815,10 +1009,12 @@ class PublicExamOTPVerifyView(SuccessResponseMixin, APIView):
             )
 
         otp.mark_used()
+        access_token = ExamCreditService.generate_candidate_access_token(normalized_phone)
 
         return self.success_response(
             data={
                 "phone_number": normalized_phone,
+                "access_token": access_token,
                 "verified": True,
             },
             message="Phone number verified successfully.",
