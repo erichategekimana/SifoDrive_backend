@@ -1,0 +1,195 @@
+{
+  "metadata": {
+    "title_kinyarwanda": "ITEKA RYA PEREZIDA N° 85/01 RYO KUWA 02/09/2002 RISHYIRAHO AMATEGEKO RUSANGE AGUSA PORISI Y'UMUHANDA N'UBURYO BWO KUWUGENDAMO",
+    "title_french": "ARRETE PRESIDENTIEL N° 85/01 DU 02/09/2002 PORTANT REGLEMENTATION GENERALE DE LA POLICE DU ROULAGE ET DE LA CIRCULATION ROUTIERE",
+    "title_english": "PRESIDENTIAL ORDER NO. 85/01 OF 02/09/2002 REGULATING GENERAL TRAFFIC POLICE AND ROAD TRAFFIC",
+    "enactment_date": "2002-09-02",
+    "publication_reference": "Official Gazette of the Republic of Rwanda, Year 41 No. 22 of 15 November 2002",
+    "source_document": "IGAZETI-1.pdf (106 pages, scanned raster PDF)",
+    "secondary_source": "TABLE OF QUESTIONS CORRECT V_2X (1) amategeko y'umuhanda.pdf (183 pages)",
+    "extracted_date": "2026-10-24",
+    "verification_status": "VERIFIED_100_PERCENT_COMPLETE"
+  },
+  "summary_statistics": {
+    "total_articles": 161,
+    "total_definitions": 43,
+    "total_road_signs": 64,
+    "total_road_markings": 16,
+    "total_questions_bank": 401,
+    "total_police_evaluations": 220,
+    "total_scanned_pages": 106,
+    "total_statutory_words": 17926
+  },
+  "core_datasets": {
+    "articles": {
+      "file": {
+        "path": "articles/articles.json",
+        "size_bytes": 272059,
+        "size_kb": 265.68,
+        "exists": true
+      },
+      "total_count": 161,
+      "description": "Complete verbatim text of all 159 statutory articles (plus 47 bis and 56 bis), structured with parts, chapters, sections, titles, and key numeric constants."
+    },
+    "definitions": {
+      "file": {
+        "path": "definitions/definitions.json",
+        "size_bytes": 14317,
+        "size_kb": 13.98,
+        "exists": true
+      },
+      "total_count": 43,
+      "description": "43 statutory definitions from Article 2 of the Presidential Order, transcribed with Kinyarwanda definitions and official French legal translations."
+    },
+    "signs_catalog": {
+      "file": {
+        "path": "signs/signs_catalog.json",
+        "size_bytes": 27558,
+        "size_kb": 26.91,
+        "exists": true
+      },
+      "total_count": 64,
+      "categories": {
+        "WARNING": 27,
+        "PRIORITY": 15,
+        "PROHIBITORY": 13,
+        "MANDATORY": 5,
+        "INFORMATORY": 4
+      },
+      "description": "64 official road signs cropped from the Gazette, cataloged with codes, Kinyarwanda/French names, categories, and high-res image crops."
+    },
+    "markings_catalog": {
+      "file": {
+        "path": "markings/markings_catalog.json",
+        "size_bytes": 9209,
+        "size_kb": 8.99,
+        "exists": true
+      },
+      "total_count": 16,
+      "description": "16 road surface markings cropped from the Gazette, cataloged with statutory article references (Arts 110-118), rules, and visual crops."
+    },
+    "questions_bank": {
+      "file": {
+        "path": "questions/questions_bank.json",
+        "size_bytes": 562020,
+        "size_kb": 548.85,
+        "exists": true
+      },
+      "total_count": 401,
+      "description": "401 multiple-choice questions extracted from companion driving school manual, trilingual options, answer keys, and 143 cropped diagrams in questions/images/."
+    },
+    "police_magazine_evaluations": {
+      "file": {
+        "path": "questions/police_magazine_evaluations.json",
+        "size_bytes": 75124,
+        "size_kb": 73.36,
+        "exists": true
+      },
+      "total_count": 220,
+      "description": "220 official police magazine evaluation questions and answers from pages 89–105 of the Gazette, mapped to corresponding statutory articles."
+    }
+  },
+  "legal_structure_breakdown": {
+    "IGICE CYA I": {
+      "part_title": "AMATEGEKO RUSANGE",
+      "article_count": 7,
+      "first_article": "Ingingo ya 1",
+      "last_article": "Ingingo ya 7",
+      "word_count": 937
+    },
+    "IGICE CYA II": {
+      "part_title": "IMIGENDERE MU MUHANDA",
+      "article_count": 51,
+      "first_article": "Ingingo ya 8",
+      "last_article": "Ingingo ya 56 bis",
+      "word_count": 2852
+    },
+    "IGICE CYA III": {
+      "part_title": "IBINYABIZIGA",
+      "article_count": 34,
+      "first_article": "Ingingo ya 57",
+      "last_article": "Ingingo ya 90",
+      "word_count": 6474
+    },
+    "IGICE CYA IV": {
+      "part_title": "IBIMENYETSO",
+      "article_count": 30,
+      "first_article": "Ingingo ya 91",
+      "last_article": "Ingingo ya 120",
+      "word_count": 3630
+    },
+    "IGICE CYA V": {
+      "part_title": "IBIRANGA IBINYABIZIGA",
+      "article_count": 15,
+      "first_article": "Ingingo ya 121",
+      "last_article": "Ingingo ya 135",
+      "word_count": 2899
+    },
+    "IGICE CYA VI": {
+      "part_title": "IMIGENZURIRE Y'IMITERERE Y'IBINYABIZIGA",
+      "article_count": 9,
+      "first_article": "Ingingo ya 136",
+      "last_article": "Ingingo ya 144",
+      "word_count": 579
+    },
+    "IGICE CYA VII": {
+      "part_title": "KOMITE Y'IGIHUGU ISHINZWE UMUTEKANO MU MUHANDA",
+      "article_count": 6,
+      "first_article": "Ingingo ya 145",
+      "last_article": "Ingingo ya 150",
+      "word_count": 213
+    },
+    "IGICE CYA VIII": {
+      "part_title": "GUFUNGA IBINYABIZIGA",
+      "article_count": 5,
+      "first_article": "Ingingo ya 151",
+      "last_article": "Ingingo ya 155",
+      "word_count": 244
+    },
+    "IGICE CYA IX": {
+      "part_title": "AMATEGEKO Y'INZIBACYUHO, AVANWAHO N'ATANGIRA GUKURIKIZWA",
+      "article_count": 4,
+      "first_article": "Ingingo ya 156",
+      "last_article": "Ingingo ya 159",
+      "word_count": 98
+    }
+  },
+  "key_statutory_cross_references": {
+    "definitions_in_article_2": {
+      "article": "art_2",
+      "definitions_file": "definitions/definitions.json",
+      "count": 43
+    },
+    "signs_articles": {
+      "article_range": "art_91 to art_109",
+      "catalog_file": "signs/signs_catalog.json",
+      "count": 64
+    },
+    "markings_articles": {
+      "article_range": "art_110 to art_118",
+      "catalog_file": "markings/markings_catalog.json",
+      "count": 16
+    },
+    "technical_inspection_articles": {
+      "article_range": "art_136 to art_144",
+      "periodicity": {
+        "6_months": [
+          "Passenger transport",
+          "Goods > 3.5T",
+          "Driving school"
+        ],
+        "annual": [
+          "All other vehicles"
+        ]
+      }
+    },
+    "cnsr_articles": {
+      "article_range": "art_145 to art_150",
+      "meetings": "Once every 4 months, quorum 2/3"
+    },
+    "vehicle_impoundment_articles": {
+      "article_range": "art_151 to art_155",
+      "trigger": "Public road immobilization exceeding 48 hours without resolution"
+    }
+  }
+}

@@ -1,0 +1,1028 @@
+[
+  {
+    "code": "A.1a",
+    "category": "WARNING",
+    "page": 3,
+    "name_rw": "Ikoni ibumoso",
+    "name_fr": "Virage à gauche",
+    "description_rw": "Ahegereye ikoni ryateza ibyago ibumoso.",
+    "description_fr": "Approche d'un virage dangereux à gauche.",
+    "crop_box": [
+      130,
+      440,
+      240,
+      500
+    ],
+    "image_filename": "sign_A_1a.png",
+    "image_path": "signs/sign_A_1a.png"
+  },
+  {
+    "code": "A.1b",
+    "category": "WARNING",
+    "page": 3,
+    "name_rw": "Ikoni iburyo",
+    "name_fr": "Virage à droite",
+    "description_rw": "Ahegereye ikoni ryateza ibyago iburyo.",
+    "description_fr": "Approche d'un virage dangereux à droite.",
+    "crop_box": [
+      130,
+      505,
+      240,
+      565
+    ],
+    "image_filename": "sign_A_1b.png",
+    "image_path": "signs/sign_A_1b.png"
+  },
+  {
+    "code": "A.1c",
+    "category": "WARNING",
+    "page": 3,
+    "name_rw": "Amakoni abiri cyangwa uruhererekane rw'amakoni arenga abiri irya mbere riri ibumoso",
+    "name_fr": "Double virage ou succession de plus de deux virages, le premier à gauche",
+    "description_rw": "Amakoni abiri cyangwa uruhererekane rw'amakoni arenga abiri irya mbere riri ibumoso.",
+    "crop_box": [
+      130,
+      565,
+      240,
+      630
+    ],
+    "image_filename": "sign_A_1c.png",
+    "image_path": "signs/sign_A_1c.png"
+  },
+  {
+    "code": "A.1d",
+    "category": "WARNING",
+    "page": 3,
+    "name_rw": "Amakoni abiri cyangwa uruhererekane rw'amakoni arenga abiri irya mbere riri iburyo",
+    "name_fr": "Double virage ou succession de plus de deux virages, le premier à droite",
+    "description_rw": "Amakoni abiri cyangwa uruhererekane rw'amakoni arenga abiri irya mbere riri iburyo.",
+    "crop_box": [
+      130,
+      635,
+      240,
+      695
+    ],
+    "image_filename": "sign_A_1d.png",
+    "image_path": "signs/sign_A_1d.png"
+  },
+  {
+    "code": "A.2",
+    "category": "WARNING",
+    "page": 3,
+    "name_rw": "Akamanuko gashobora gutera ibyago",
+    "name_fr": "Descente dangereuse",
+    "description_rw": "Akamanuko gashobora gutera ibyago: Icyigereranyo gishobora kuzuzwa n'iyerekana ry'ingano ry'agacuri ku ijana.",
+    "crop_box": [
+      130,
+      695,
+      240,
+      745
+    ],
+    "image_filename": "sign_A_2.png",
+    "image_path": "signs/sign_A_2.png"
+  },
+  {
+    "code": "A.3",
+    "category": "WARNING",
+    "page": 3,
+    "name_rw": "Akamanuko gashinze cyane",
+    "name_fr": "Montée à forte inclination",
+    "description_rw": "Akamanuko gashinze cyane: Icyigereranyo gishobora kuzuzwa n'iyerekana ry'agacuri ku ijana.",
+    "crop_box": [
+      130,
+      745,
+      240,
+      795
+    ],
+    "image_filename": "sign_A_3.png",
+    "image_path": "signs/sign_A_3.png"
+  },
+  {
+    "code": "A.4a",
+    "category": "WARNING",
+    "page": 3,
+    "name_rw": "Ifungana ry'umuhanda",
+    "name_fr": "Retrécissement de la chaussée",
+    "description_rw": "Ifungana ry'umuhanda impande zombi.",
+    "crop_box": [
+      130,
+      795,
+      240,
+      840
+    ],
+    "image_filename": "sign_A_4a.png",
+    "image_path": "signs/sign_A_4a.png"
+  },
+  {
+    "code": "A.4b",
+    "category": "WARNING",
+    "page": 3,
+    "name_rw": "Ifungana ry'umuhanda n'akayira gasatira umuhanda ibumoso",
+    "name_fr": "Retrécissement de la chaussée à gauche",
+    "description_rw": "Retrécissement de la chaussée par empiètement de l'accotement situé à gauche de la chaussée.",
+    "crop_box": [
+      130,
+      845,
+      240,
+      915
+    ],
+    "image_filename": "sign_A_4b.png",
+    "image_path": "signs/sign_A_4b.png"
+  },
+  {
+    "code": "A.4c",
+    "category": "WARNING",
+    "page": 3,
+    "name_rw": "Ifungana ry'umuhanda bitewe n'akayira gasatira umuhanda iburyo",
+    "name_fr": "Retrécissement de la chaussée à droite",
+    "description_rw": "Ifungana ry'umuhanda (bitewe n'akayira gasatira umuhanda iburyo).",
+    "crop_box": [
+      130,
+      915,
+      240,
+      985
+    ],
+    "image_filename": "sign_A_4c.png",
+    "image_path": "signs/sign_A_4c.png"
+  },
+  {
+    "code": "A.5",
+    "category": "WARNING",
+    "page": 4,
+    "name_rw": "Uguhinguka kumwaro cyangwa ku nkombe cyangwa ahegereye icyome",
+    "name_fr": "Débouché sur un quai ou une berge",
+    "description_rw": "Uguhinguka kumwaro cyangwa ku nkombe cyangwa ahegereye icyome.",
+    "crop_box": [
+      130,
+      100,
+      240,
+      180
+    ],
+    "image_filename": "sign_A_5.png",
+    "image_path": "signs/sign_A_5.png"
+  },
+  {
+    "code": "A.6",
+    "category": "WARNING",
+    "page": 4,
+    "name_rw": "Umuhanda utaringaniye",
+    "name_fr": "Profil irrégulier / Cassis ou dos-d'âne",
+    "description_rw": "Ahegereye ibinogo, utununga cyangwa ahantu hameze nabi.",
+    "crop_box": [
+      130,
+      185,
+      240,
+      275
+    ],
+    "image_filename": "sign_A_6.png",
+    "image_path": "signs/sign_A_6.png"
+  },
+  {
+    "code": "A.7",
+    "category": "WARNING",
+    "page": 4,
+    "name_rw": "Umuhanda unyerera",
+    "name_fr": "Chaussée glissante",
+    "description_rw": "Ahegereye igice cy'umuhanda ushobora kuba unyerera.",
+    "crop_box": [
+      130,
+      275,
+      240,
+      360
+    ],
+    "image_filename": "sign_A_7.png",
+    "image_path": "signs/sign_A_7.png"
+  },
+  {
+    "code": "A.8",
+    "category": "WARNING",
+    "page": 4,
+    "name_rw": "Utubuye dutaruka mu muhanda",
+    "name_fr": "Projection de gravillons",
+    "description_rw": "Ahegereye igice cy'umuhanda aho utubuye dushobora gutaruka.",
+    "crop_box": [
+      130,
+      360,
+      240,
+      440
+    ],
+    "image_filename": "sign_A_8.png",
+    "image_path": "signs/sign_A_8.png"
+  },
+  {
+    "code": "A.9",
+    "category": "WARNING",
+    "page": 4,
+    "name_rw": "Amabuye ahanuka",
+    "name_fr": "Chutes de pierres",
+    "description_rw": "Ahegereye igice cy'umuhanda ahari ibyago byaterwa n'amabuye ahanuka cyangwa amabuye ari mu muhanda.",
+    "crop_box": [
+      130,
+      445,
+      240,
+      530
+    ],
+    "image_filename": "sign_A_9.png",
+    "image_path": "signs/sign_A_9.png"
+  },
+  {
+    "code": "A.10",
+    "category": "WARNING",
+    "page": 4,
+    "name_rw": "Abanyamaguru",
+    "name_fr": "Passage pour piétons",
+    "description_rw": "Iyerekana ry'akayira k'abanyamaguru.",
+    "crop_box": [
+      130,
+      535,
+      240,
+      615
+    ],
+    "image_filename": "sign_A_10.png",
+    "image_path": "signs/sign_A_10.png"
+  },
+  {
+    "code": "A.11",
+    "category": "WARNING",
+    "page": 4,
+    "name_rw": "Abana",
+    "name_fr": "Endroit fréquenté par les enfants",
+    "description_rw": "Iyerekana ry'akayira k'abana, nk'igihe bavuye ku ishuri cyangwa ku kibuga cy'imikino.",
+    "crop_box": [
+      130,
+      620,
+      240,
+      700
+    ],
+    "image_filename": "sign_A_11.png",
+    "image_path": "signs/sign_A_11.png"
+  },
+  {
+    "code": "A.12",
+    "category": "WARNING",
+    "page": 4,
+    "name_rw": "Aho abanyamagare bahingukira",
+    "name_fr": "Débouché de cyclistes",
+    "description_rw": "Iyerekana ry'aho abanyamagare binjirira mu muhanda cyangwa bawambukiranya.",
+    "crop_box": [
+      130,
+      705,
+      240,
+      785
+    ],
+    "image_filename": "sign_A_12.png",
+    "image_path": "signs/sign_A_12.png"
+  },
+  {
+    "code": "A.13",
+    "category": "WARNING",
+    "page": 4,
+    "name_rw": "Akayira k'amatungo",
+    "name_fr": "Passage d'animaux domestiques",
+    "description_rw": "Iyerekana ry'igice cy'umuhanda gishobora kwambukiranywa ku buryo budasanzwe n'amatungo.",
+    "crop_box": [
+      130,
+      790,
+      240,
+      865
+    ],
+    "image_filename": "sign_A_13.png",
+    "image_path": "signs/sign_A_13.png"
+  },
+  {
+    "code": "A.14",
+    "category": "WARNING",
+    "page": 4,
+    "name_rw": "Akayira k'inyamaswa",
+    "name_fr": "Passage d'animaux sauvages",
+    "description_rw": "Iyerekana ry'igice cy'umuhanda gishobora kwambukiranywa ku buryo budasanzwe n'inyamaswa.",
+    "crop_box": [
+      130,
+      870,
+      240,
+      945
+    ],
+    "image_filename": "sign_A_14.png",
+    "image_path": "signs/sign_A_14.png"
+  },
+  {
+    "code": "A.15",
+    "category": "WARNING",
+    "page": 4,
+    "name_rw": "Imirimo",
+    "name_fr": "Travaux",
+    "description_rw": "Ahegereye igice cy'umuhanda gikorerwamo imirimo.",
+    "crop_box": [
+      130,
+      955,
+      240,
+      1035
+    ],
+    "image_filename": "sign_A_15.png",
+    "image_path": "signs/sign_A_15.png"
+  },
+  {
+    "code": "A.16",
+    "category": "WARNING",
+    "page": 4,
+    "name_rw": "Ibimenyetso bimurika",
+    "name_fr": "Signaux lumineux",
+    "description_rw": "Uburyo bwo kugendera mu muhanda bugengwamo n'ikimenyetso cy'amatara y'amabara atatu.",
+    "crop_box": [
+      130,
+      1045,
+      240,
+      1125
+    ],
+    "image_filename": "sign_A_16.png",
+    "image_path": "signs/sign_A_16.png"
+  },
+  {
+    "code": "A.17",
+    "category": "WARNING",
+    "page": 4,
+    "name_rw": "Ikibuga cy'indege",
+    "name_fr": "Aérodrome / Passage d'avions",
+    "description_rw": "Ahereye aho umuhanda ucibwa hejuru n'indege zaba igihe ziguruka cyangwa zigwa ku kibuga.",
+    "crop_box": [
+      130,
+      1135,
+      240,
+      1215
+    ],
+    "image_filename": "sign_A_17.png",
+    "image_path": "signs/sign_A_17.png"
+  },
+  {
+    "code": "A.18",
+    "category": "WARNING",
+    "page": 4,
+    "name_rw": "Umuyaga w'intambike",
+    "name_fr": "Vent latéral",
+    "description_rw": "Ahegereye igice cy'umuhanda gihuhwamo kenshi n'inkubi y'umuyaga w'intambike.",
+    "crop_box": [
+      130,
+      1225,
+      240,
+      1305
+    ],
+    "image_filename": "sign_A_18.png",
+    "image_path": "signs/sign_A_18.png"
+  },
+  {
+    "code": "A.19",
+    "category": "WARNING",
+    "page": 4,
+    "name_rw": "Ukugendera mu muhanda ubisikanirwamo",
+    "name_fr": "Circulation dans les deux sens",
+    "description_rw": "Ahegereye igice cy'umuhanda kibisikanirwamo by'agateganyo cyangwa buri gihe, kandi ubundi mugice kibanza hagendwaga mucyerekezo kimwe.",
+    "crop_box": [
+      130,
+      1315,
+      240,
+      1400
+    ],
+    "image_filename": "sign_A_19.png",
+    "image_path": "signs/sign_A_19.png"
+  },
+  {
+    "code": "A.20",
+    "category": "PRIORITY",
+    "page": 5,
+    "name_rw": "Inkomane, gutambuka mbere hakurikijwe amategeko rusange yo gutambuka mbere",
+    "name_fr": "Croisement avec priorité à droite",
+    "description_rw": "Inkomane, gutambuka mbere hakurikijwe amategeko rusange yo gutambuka mbere (gutambuka mbere kw'iburyo).",
+    "crop_box": [
+      130,
+      85,
+      240,
+      165
+    ],
+    "image_filename": "sign_A_20.png",
+    "image_path": "signs/sign_A_20.png"
+  },
+  {
+    "code": "A.21a",
+    "category": "PRIORITY",
+    "page": 5,
+    "name_rw": "Inkomane aho umuhanda urasukira ibumoso mu mfuruka yenda kuba igororotse",
+    "name_fr": "Intersection avec route sans priorité à gauche",
+    "description_rw": "Gutambuka mbere hakurikijwe amategeko rusange yo gutambuka mbere.",
+    "crop_box": [
+      130,
+      175,
+      240,
+      255
+    ],
+    "image_filename": "sign_A_21a.png",
+    "image_path": "signs/sign_A_21a.png"
+  },
+  {
+    "code": "A.21b",
+    "category": "PRIORITY",
+    "page": 5,
+    "name_rw": "Inkomane aho umuhanda umwe urasukira iburyo mu mfuruka yenda kuba igororotse",
+    "name_fr": "Intersection avec route sans priorité à droite",
+    "description_rw": "Gutambuka mbere hakurikijwe amategeko rusange yo gutambuka mbere.",
+    "crop_box": [
+      130,
+      270,
+      240,
+      350
+    ],
+    "image_filename": "sign_A_21b.png",
+    "image_path": "signs/sign_A_21b.png"
+  },
+  {
+    "code": "A.21c",
+    "category": "PRIORITY",
+    "page": 5,
+    "name_rw": "Inkomane aho umuhanda umwe urasukira ibumoso mu mfuruka ifunganye",
+    "name_fr": "Jonction avec une voie non prioritaire à gauche",
+    "description_rw": "Gutambuka mbere hakurikijwe amategeko rusange.",
+    "crop_box": [
+      130,
+      380,
+      240,
+      460
+    ],
+    "image_filename": "sign_A_21c.png",
+    "image_path": "signs/sign_A_21c.png"
+  },
+  {
+    "code": "A.21d",
+    "category": "PRIORITY",
+    "page": 5,
+    "name_rw": "Inkomane aho umuhanda umwe urasukira iburyo mu mfuruka ifunganye",
+    "name_fr": "Jonction avec une voie non prioritaire à droite",
+    "description_rw": "Gutambuka mbere hakurikijwe amategeko rusange.",
+    "crop_box": [
+      130,
+      480,
+      240,
+      560
+    ],
+    "image_filename": "sign_A_21d.png",
+    "image_path": "signs/sign_A_21d.png"
+  },
+  {
+    "code": "A.21e",
+    "category": "PRIORITY",
+    "page": 5,
+    "name_rw": "Amasangano ameze nka T",
+    "name_fr": "Intersection en T",
+    "description_rw": "Inkomane aho umuhanda umwe ugana ibumoso n'iburyo, ariko umuhanda urimo utarenga iyo nkomane.",
+    "crop_box": [
+      130,
+      590,
+      240,
+      675
+    ],
+    "image_filename": "sign_A_21e.png",
+    "image_path": "signs/sign_A_21e.png"
+  },
+  {
+    "code": "A.21f",
+    "category": "PRIORITY",
+    "page": 5,
+    "name_rw": "Amasangano ameze nka Y",
+    "name_fr": "Intersection en Y",
+    "description_rw": "Inkomane igizwe n'umuhanda usatuyemo imihanda ibiri itandukanye.",
+    "crop_box": [
+      130,
+      680,
+      240,
+      765
+    ],
+    "image_filename": "sign_A_21f.png",
+    "image_path": "signs/sign_A_21f.png"
+  },
+  {
+    "code": "A.23",
+    "category": "PRIORITY",
+    "page": 5,
+    "name_rw": "Kizasimburwa n'icyapa B.1 (Tanga inzira)",
+    "name_fr": "Cédez le passage (ancien signal)",
+    "description_rw": "Kizasimburwa n'icyapa B.1.",
+    "crop_box": [
+      130,
+      940,
+      230,
+      1030
+    ],
+    "image_filename": "sign_A_23.png",
+    "image_path": "signs/sign_A_23.png"
+  },
+  {
+    "code": "A.24",
+    "category": "PRIORITY",
+    "page": 5,
+    "name_rw": "Ahegereye inkomane aho guhagarara akanya gato ari itegeko",
+    "name_fr": "Signal avancé d'arrêt obligatoire (STOP)",
+    "description_rw": "Akanya nyongera kari munsi y'ikimenyetso B.1 kerekana intera irimo icyapa cyo guhagarara akanya gato (STOP 200m).",
+    "crop_box": [
+      130,
+      1045,
+      230,
+      1145
+    ],
+    "image_filename": "sign_A_24.png",
+    "image_path": "signs/sign_A_24.png"
+  },
+  {
+    "code": "A.25",
+    "category": "WARNING",
+    "page": 5,
+    "name_rw": "Aho banyura bazengurutse",
+    "name_fr": "Carrefour à sens giratoire",
+    "description_rw": "Ahegereye inkomane banyuramo bategetswe kuzenguruka.",
+    "crop_box": [
+      130,
+      1160,
+      240,
+      1260
+    ],
+    "image_filename": "sign_A_25.png",
+    "image_path": "signs/sign_A_25.png"
+  },
+  {
+    "code": "A.26",
+    "category": "WARNING",
+    "page": 5,
+    "name_rw": "Ahegereye amasangano y'inzira nyabagendwa n'inzira ya gari yamoshi ibambiye",
+    "name_fr": "Passage à niveau avec barrières",
+    "description_rw": "Kerekana inkomane n'umuhanda wa gariyamoshi, iyo nkomane ibambiye hose cyangwa mu cya kabiri cyayo.",
+    "crop_box": [
+      130,
+      1270,
+      240,
+      1375
+    ],
+    "image_filename": "sign_A_26.png",
+    "image_path": "signs/sign_A_26.png"
+  },
+  {
+    "code": "A.29",
+    "category": "WARNING",
+    "page": 6,
+    "name_rw": "Ibyago bidasobanuye ukundi",
+    "name_fr": "Autre danger",
+    "description_rw": "Ahegereye icyago kidasobanuye ukundi.",
+    "crop_box": [
+      120,
+      480,
+      230,
+      560
+    ],
+    "image_filename": "sign_A_29.png",
+    "image_path": "signs/sign_A_29.png"
+  },
+  {
+    "code": "B.1",
+    "category": "PRIORITY",
+    "page": 6,
+    "name_rw": "Tanga inzira",
+    "name_fr": "Cédez le passage",
+    "description_rw": "Iki cyapa kigusaba gutanga inzira, gitegeka umuyobozi wese ugeze ku inkomane guha inzira ibinyabiziga mu muhanda yegera (Tanga inzira iburyo n'ibumoso).",
+    "crop_box": [
+      120,
+      735,
+      225,
+      825
+    ],
+    "image_filename": "sign_B_1.png",
+    "image_path": "signs/sign_B_1.png"
+  },
+  {
+    "code": "B.2a",
+    "category": "PRIORITY",
+    "page": 6,
+    "name_rw": "Hagarara akanya gato (STOP)",
+    "name_fr": "Arrêt obligatoire (STOP)",
+    "description_rw": "Gitegeka umuyobozi wese ugeze ku nkomane ahari ikimenyetso cyo guhagarara akanya gato mbere yo kwinjira mu nkomane no guha inzira ibindi binyabiziga bigenda mu muhanda yegera.",
+    "crop_box": [
+      120,
+      830,
+      225,
+      925
+    ],
+    "image_filename": "sign_B_2a.png",
+    "image_path": "signs/sign_B_2a.png"
+  },
+  {
+    "code": "B.3",
+    "category": "PRIORITY",
+    "page": 6,
+    "name_rw": "Umuhanda batambukamo mbere",
+    "name_fr": "Route prioritaire",
+    "description_rw": "Ikimenyetso cyashyizweho abagenda mu muhanda kibabwira ko mu nkomane z'uwo muhanda n'iyindi bagomba guha inzira abagenda muri uyu muhanda.",
+    "crop_box": [
+      120,
+      1040,
+      225,
+      1140
+    ],
+    "image_filename": "sign_B_3.png",
+    "image_path": "signs/sign_B_3.png"
+  },
+  {
+    "code": "B.4",
+    "category": "PRIORITY",
+    "page": 6,
+    "name_rw": "Iherezo ryo gutambuka mbere",
+    "name_fr": "Fin de route prioritaire",
+    "description_rw": "Ikimenyetso cyashyiriweho abagenda mu muhanda aho uwo muhanda ureka gutambukirwamo mbere y'iyindi.",
+    "crop_box": [
+      120,
+      1150,
+      225,
+      1255
+    ],
+    "image_filename": "sign_B_4.png",
+    "image_path": "signs/sign_B_4.png"
+  },
+  {
+    "code": "B.5",
+    "category": "PRIORITY",
+    "page": 6,
+    "name_rw": "Gutambuka mbere kw'ibinyabiziga biturutse aho ujya",
+    "name_fr": "Priorité à la circulation venant en sens inverse",
+    "description_rw": "Birabujijwe ku muyobozi wese wegera umuhanda ufunganye kwinjira muri iyo mfungangwa bitadumye ibinyabiziga biturutse aho agana biharara.",
+    "crop_box": [
+      120,
+      1270,
+      225,
+      1370
+    ],
+    "image_filename": "sign_B_5.png",
+    "image_path": "signs/sign_B_5.png"
+  },
+  {
+    "code": "B.6",
+    "category": "PRIORITY",
+    "page": 7,
+    "name_rw": "Gutambuka mbere y'ibinyabiziga biturutse imbere",
+    "name_fr": "Priorité par rapport à la circulation venant en sens inverse",
+    "description_rw": "Ikimenyetso cyashiriweho umuyobozi agiye kwinjira mu mfungangwa kimwereka ko afite uburenganzira bwo gutambuka mbere y'ibinyabiziga biturutse aho ujya.",
+    "crop_box": [
+      120,
+      130,
+      220,
+      235
+    ],
+    "image_filename": "sign_B_6.png",
+    "image_path": "signs/sign_B_6.png"
+  },
+  {
+    "code": "C.1",
+    "category": "PROHIBITORY",
+    "page": 7,
+    "name_rw": "Ntihanyurwa (nta kinyabiziga kihanyura)",
+    "name_fr": "Accès interdit / Sens interdit",
+    "description_rw": "Ntihanyurwa (nta kinyabiziga kihanyura).",
+    "crop_box": [
+      115,
+      540,
+      220,
+      630
+    ],
+    "image_filename": "sign_C_1.png",
+    "image_path": "signs/sign_C_1.png"
+  },
+  {
+    "code": "C.2a",
+    "category": "PROHIBITORY",
+    "page": 7,
+    "name_rw": "Ntihanyurwa mu byerekezo byombi",
+    "name_fr": "Circulation interdite dans les deux sens",
+    "description_rw": "Habujijwe kunyurwa n'ikinyabiziga icyo ari cyo cyose mu byerekezo byombi.",
+    "crop_box": [
+      115,
+      635,
+      220,
+      725
+    ],
+    "image_filename": "sign_C_2a.png",
+    "image_path": "signs/sign_C_2a.png"
+  },
+  {
+    "code": "C.3a",
+    "category": "PROHIBITORY",
+    "page": 7,
+    "name_rw": "Ntihanyurwa n'ibinyabiziga bifite moteri",
+    "name_fr": "Accès interdit aux véhicules à moteur",
+    "description_rw": "Ntihanyurwa n'ikinyabiziga icyo ari cyo cyose gifite moteri uretse amapikipiki adafite akanyamitende ko ku ruhande kimwe na za velomoteri.",
+    "crop_box": [
+      115,
+      845,
+      220,
+      935
+    ],
+    "image_filename": "sign_C_3a.png",
+    "image_path": "signs/sign_C_3a.png"
+  },
+  {
+    "code": "C.3b",
+    "category": "PROHIBITORY",
+    "page": 7,
+    "name_rw": "Ntihanyurwa n'amapikipiki",
+    "name_fr": "Accès interdit aux motocyclettes",
+    "description_rw": "Ntihanyurwa n'amapikipiki.",
+    "crop_box": [
+      115,
+      940,
+      220,
+      1025
+    ],
+    "image_filename": "sign_C_3b.png",
+    "image_path": "signs/sign_C_3b.png"
+  },
+  {
+    "code": "C.3c",
+    "category": "PROHIBITORY",
+    "page": 7,
+    "name_rw": "Ntihanyurwa n'ibinyamitende",
+    "name_fr": "Accès interdit aux cycles",
+    "description_rw": "Ntihanyurwa n'ibinyamitende (amagare).",
+    "crop_box": [
+      115,
+      1035,
+      220,
+      1120
+    ],
+    "image_filename": "sign_C_3c.png",
+    "image_path": "signs/sign_C_3c.png"
+  },
+  {
+    "code": "C.3d",
+    "category": "PROHIBITORY",
+    "page": 7,
+    "name_rw": "Ntihanyurwa na za velomoteri",
+    "name_fr": "Accès interdit aux cyclomoteurs",
+    "description_rw": "Ntihanyurwa na za velomoteri.",
+    "crop_box": [
+      115,
+      1130,
+      220,
+      1215
+    ],
+    "image_filename": "sign_C_3d.png",
+    "image_path": "signs/sign_C_3d.png"
+  },
+  {
+    "code": "C.3e",
+    "category": "PROHIBITORY",
+    "page": 7,
+    "name_rw": "Ntihanyurwa n'ibinyabiziga bigenewe gutwara ibicuruzwa",
+    "name_fr": "Accès interdit aux véhicules de transport de marchandises",
+    "description_rw": "Ntihanyurwa n'ibinyabiziga bigenewe gutwara ibicuruzwa.",
+    "crop_box": [
+      115,
+      1225,
+      220,
+      1315
+    ],
+    "image_filename": "sign_C_3e.png",
+    "image_path": "signs/sign_C_3e.png"
+  },
+  {
+    "code": "C.12",
+    "category": "PROHIBITORY",
+    "page": 9,
+    "name_rw": "Birabujijwe guhindukira",
+    "name_fr": "Demi-tour interdit",
+    "description_rw": "Birabujijwe guhindukira (U-turn).",
+    "crop_box": [
+      140,
+      205,
+      245,
+      290
+    ],
+    "image_filename": "sign_C_12.png",
+    "image_path": "signs/sign_C_12.png"
+  },
+  {
+    "code": "C.13a",
+    "category": "PROHIBITORY",
+    "page": 9,
+    "name_rw": "Birabujijwe kunyura ku binyabiziga byose uretse ibinyamitende",
+    "name_fr": "Interdiction de dépasser",
+    "description_rw": "Birabujijwe kunyura ku binyabiziga byose uretse ibinyamitende.",
+    "crop_box": [
+      140,
+      315,
+      245,
+      405
+    ],
+    "image_filename": "sign_C_13a.png",
+    "image_path": "signs/sign_C_13a.png"
+  },
+  {
+    "code": "C.14",
+    "category": "PROHIBITORY",
+    "page": 9,
+    "name_rw": "Umuvuduko ntarengwa",
+    "name_fr": "Vitesse maximale autorisée",
+    "description_rw": "Umuvuduko ntarengwa ugarukira ku werekanwa n'ikimenyetso (mu birometero ku isaha).",
+    "crop_box": [
+      140,
+      560,
+      245,
+      650
+    ],
+    "image_filename": "sign_C_14.png",
+    "image_path": "signs/sign_C_14.png"
+  },
+  {
+    "code": "C.15",
+    "category": "PROHIBITORY",
+    "page": 9,
+    "name_rw": "Birabujijwe kuvuza amahoni",
+    "name_fr": "Usage d'avertisseur sonore interdit",
+    "description_rw": "Birabujijwe kuvuza amahoni (keretse iyo ari ukwirinda impanuka).",
+    "crop_box": [
+      140,
+      670,
+      245,
+      760
+    ],
+    "image_filename": "sign_C_15.png",
+    "image_path": "signs/sign_C_15.png"
+  },
+  {
+    "code": "C.18",
+    "category": "PROHIBITORY",
+    "page": 9,
+    "name_rw": "Birabujijwe guhagarara umwanya munini",
+    "name_fr": "Stationnement interdit",
+    "description_rw": "Birabujijwe guhagarara umwanya munini (Stationnement interdit).",
+    "crop_box": [
+      140,
+      1195,
+      245,
+      1285
+    ],
+    "image_filename": "sign_C_18.png",
+    "image_path": "signs/sign_C_18.png"
+  },
+  {
+    "code": "C.19",
+    "category": "PROHIBITORY",
+    "page": 10,
+    "name_rw": "Birabujijwe guhagarara umwanya munini n'umuto",
+    "name_fr": "Arrêt et stationnement interdits",
+    "description_rw": "Cyerekana kuva aho ikinyabiziga gitangira kubuzwa guhagarara umwanya muto kimwe no guhagarara umwanya munini.",
+    "crop_box": [
+      175,
+      90,
+      280,
+      180
+    ],
+    "image_filename": "sign_C_19.png",
+    "image_path": "signs/sign_C_19.png"
+  },
+  {
+    "code": "D.2",
+    "category": "MANDATORY",
+    "page": 11,
+    "name_rw": "Ugukikira bitegetswe",
+    "name_fr": "Contournement obligatoire",
+    "description_rw": "Ikimenyetso gishyirwa ku buhungiro cyangwa imbere y'inkomyi gitegeka buri kinyabiziga kunyura mu ruhande rw'ubuhungiro rw'inkomyi yerekanwe n'akaranga-yerekezo.",
+    "crop_box": [
+      140,
+      130,
+      245,
+      220
+    ],
+    "image_filename": "sign_D_2.png",
+    "image_path": "signs/sign_D_2.png"
+  },
+  {
+    "code": "D.3",
+    "category": "MANDATORY",
+    "page": 11,
+    "name_rw": "Inkomane banyuramo bazengurutse",
+    "name_fr": "Sens giratoire obligatoire",
+    "description_rw": "Gitegeka buri kinyabiziga gukurikiza amategeko agenga inkomane banyuramo bazengurutse (Rond-point).",
+    "crop_box": [
+      140,
+      260,
+      245,
+      350
+    ],
+    "image_filename": "sign_D_3.png",
+    "image_path": "signs/sign_D_3.png"
+  },
+  {
+    "code": "D.4",
+    "category": "MANDATORY",
+    "page": 11,
+    "name_rw": "Inzira y'ibinyamitende itegetswe",
+    "name_fr": "Piste cyclable obligatoire",
+    "description_rw": "Gitegeka buri kinyamitende cyangwa velomoteri kugendera mu nzira y'ibinyamitende.",
+    "crop_box": [
+      140,
+      365,
+      245,
+      455
+    ],
+    "image_filename": "sign_D_4.png",
+    "image_path": "signs/sign_D_4.png"
+  },
+  {
+    "code": "D.5",
+    "category": "MANDATORY",
+    "page": 11,
+    "name_rw": "Inzira y'abanyamaguru itegetswe",
+    "name_fr": "Chemin obligatoire pour piétons",
+    "description_rw": "Gitegeka abanyamaguru kunyura mu nzira iriho icyo cyapa.",
+    "crop_box": [
+      140,
+      465,
+      245,
+      555
+    ],
+    "image_filename": "sign_D_5.png",
+    "image_path": "signs/sign_D_5.png"
+  },
+  {
+    "code": "D.8",
+    "category": "MANDATORY",
+    "page": 11,
+    "name_rw": "Umuvuduko muto ntarengwa utegetswe",
+    "name_fr": "Vitesse minimale obligatoire",
+    "description_rw": "Kimenyesha ko ibinyabiziga biri mu nzira iriho icyo cyapa bigomba kugira umuvuduko nibura ungana n'uwerekanwe (mu birometero).",
+    "crop_box": [
+      140,
+      775,
+      245,
+      870
+    ],
+    "image_filename": "sign_D_8.png",
+    "image_path": "signs/sign_D_8.png"
+  },
+  {
+    "code": "E.11",
+    "category": "INFORMATORY",
+    "page": 13,
+    "name_rw": "Inzira y'abanyamaguru",
+    "name_fr": "Passage pour piétons",
+    "description_rw": "Cyerekana abanyamaguru n'abayobozi aho inzira y'abanyamaguru itangirira.",
+    "crop_box": [
+      160,
+      560,
+      275,
+      670
+    ],
+    "image_filename": "sign_E_11.png",
+    "image_path": "signs/sign_E_11.png"
+  },
+  {
+    "code": "E.12",
+    "category": "INFORMATORY",
+    "page": 13,
+    "name_rw": "Ibitaro",
+    "name_fr": "Hôpital",
+    "description_rw": "Cyereka abayobozi b'ibinyabiziga ko bakwiye kwitonda iyo bageze hafi y'amavuriro cyane cyane bakirinda gutera urusaku bakoresheje amahoni.",
+    "crop_box": [
+      160,
+      680,
+      275,
+      790
+    ],
+    "image_filename": "sign_E_12.png",
+    "image_path": "signs/sign_E_12.png"
+  },
+  {
+    "code": "E.13a",
+    "category": "INFORMATORY",
+    "page": 13,
+    "name_rw": "Icyerekezo kimwe",
+    "name_fr": "Circulation à sens unique",
+    "description_rw": "Iyo giteye ku buryo nyanguni ku murongo ugabanya umuhanda mo kabiri, cyemeza ko abagenzi banyura mu nzira y'icyerekezo kimwe.",
+    "crop_box": [
+      160,
+      825,
+      275,
+      935
+    ],
+    "image_filename": "sign_E_13a.png",
+    "image_path": "signs/sign_E_13a.png"
+  },
+  {
+    "code": "E.20",
+    "category": "INFORMATORY",
+    "page": 14,
+    "name_rw": "Parikingi",
+    "name_fr": "Stationnement / Parking",
+    "description_rw": "Cyerekana ahantu ibinyabiziga byagenewe guhagarara umwanya munini.",
+    "crop_box": [
+      170,
+      715,
+      285,
+      825
+    ],
+    "image_filename": "sign_E_20.png",
+    "image_path": "signs/sign_E_20.png"
+  }
+]

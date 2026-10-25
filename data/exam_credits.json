@@ -57,9 +57,9 @@
   "0780842458": {
     "phone_number": "0780842458",
     "user_id": null,
-    "credits": 0,
-    "total_purchased": 12,
-    "total_consumed": 12,
+    "credits": 5,
+    "total_purchased": 18,
+    "total_consumed": 13,
     "transactions": [
       {
         "tx_id": "MOMO-CD77AE2D4D",
@@ -136,10 +136,23 @@
         "recipient_phone": "0780842458",
         "status": "COMPLETED",
         "created_at": "2026-10-22T16:38:08.000413+00:00"
+      },
+      {
+        "tx_id": "MOMO-E04CF21F",
+        "reference_id": "e04cf21f-49be-4d72-a0fd-80fc2213102b",
+        "financial_transaction_id": "1307484516",
+        "package": "REGULAR",
+        "package_name": "6 Exams",
+        "credits_added": 6,
+        "amount_rwf": 480,
+        "paying_number": "0780842458",
+        "recipient_phone": "0780842458",
+        "status": "COMPLETED",
+        "created_at": "2026-10-23T17:54:45.350153+00:00"
       }
     ],
-    "last_purchased_at": "2026-10-22T16:38:08.000413+00:00",
-    "updated_at": "2026-10-23T08:09:42.016444+00:00",
+    "last_purchased_at": "2026-10-23T17:54:45.350153+00:00",
+    "updated_at": "2026-10-23T17:56:21.996051+00:00",
     "full_name": "Developer One"
   },
   "+250780842458": {
@@ -149,6 +162,15 @@
     "total_consumed": 0,
     "transactions": [],
     "full_name": "Developer One",
-    "updated_at": "2026-10-23T06:48:31.194026+00:00"
+    "updated_at": "2026-10-23T17:53:57.792282+00:00"
+  },
+  "+250786113186": {
+    "phone_number": "+250786113186",
+    "credits": 0,
+    "total_purchased": 0,
+    "total_consumed": 0,
+    "transactions": [],
+    "full_name": "ishimwe",
+    "updated_at": "2026-10-23T17:52:56.367202+00:00"
   }
 }

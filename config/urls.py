@@ -53,6 +53,9 @@ api_v1_patterns = [
 
     # Audit Logs (read-only — SYSTEM_ADMIN and BOARD_REVIEWER only)
     path("audit/", include("apps.audit.urls", namespace="audit")),
+
+    # Official Rwanda Traffic Law & Highway Code Corpus
+    path("traffic-law/", include("apps.traffic_law.urls", namespace="traffic_law")),
 ]
 
 

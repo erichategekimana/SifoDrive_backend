@@ -1,0 +1,346 @@
+[
+  {
+    "number": 1,
+    "term": "Inzira Nyabagendwa",
+    "term_fr": "Voie publique",
+    "definition": "Imbago zose z’imihanda minini, amabarabara, aho abantu nyamwinshi bahurira, aho imodoka zihagarara, inzira n’utuyira two ku muhanda, ibiraro, ibyombo mbese ku buryo rusange, imihanda nyabagendwa yose igendwamo ku butaka.",
+    "article": "Ingingo ya 2",
+    "source_page": 20
+  },
+  {
+    "number": 2,
+    "term": "Umuhanda",
+    "term_fr": "Chaussée",
+    "definition": "Igice cyangwa ibice by’inzira nyabagendwa bigendwaho n’ibinyabiziga; iyo nzira nyabagendwa ikaba yagira imihanda myinshi itandukanyijwe ku buryo bugaragara n’ubutaka bwayo cyangwa ubusumbane.",
+    "article": "Ingingo ya 2",
+    "source_page": 20
+  },
+  {
+    "number": 3,
+    "term": "Inzira y’ibinyabiziga",
+    "term_fr": "Voie de circulation des véhicules",
+    "definition": "Umuhanda n’inzira ziwukikije.",
+    "article": "Ingingo ya 2",
+    "source_page": 20
+  },
+  {
+    "number": 4,
+    "term": "Igisate cy’umuhanda",
+    "term_fr": "Bande de circulation",
+    "definition": "Kimwe mu bice bigabanyije umuhanda mu burebure bwawo; ariko icyo gisate kikagira ubugari buhagije ku buryo ibinyabiziga bitari amagare, velomoteri cyangwa amapikipiki bigenda bibangikanye. Bishobora kugaragazwa n’umurongo umwe ukomeje cyangwa ugizwe n’uduce dukurikiranye.",
+    "article": "Ingingo ya 2",
+    "source_page": 20
+  },
+  {
+    "number": 5,
+    "term": "Agahanda k’amagare",
+    "term_fr": "Piste cyclable",
+    "definition": "Igice cy’inzira nyabagendwa cyagenewe kunyurwamo n’amagare na velomoteri bikaragarazwa n’ikimenyetso cyabigenewe.",
+    "article": "Ingingo ya 2",
+    "source_page": 20
+  },
+  {
+    "number": 6,
+    "term": "Isangano n’Inkomane",
+    "term_fr": "Intersection et carrefour",
+    "definition": "1. Ahantu hose imihanda ihurira; 2. Aho umuhanda wisukira mu wundi; cyangwa 3. Mu maharakubiri y’inzira nyabagendwa; ubwo hakabarirwamo imyanya igizwe n’ayo mahuriro n’izo nkomane cyangwa nayo maharakubiri y’imihanda.",
+    "article": "Ingingo ya 2",
+    "source_page": 20
+  },
+  {
+    "number": 7,
+    "term": "Akayira",
+    "term_fr": "Sentier / Footpath",
+    "definition": "Inzira nyabagendwa ifunganye yagenewe gusa abanyamaguru cyangwa ibinyabiziga bigendera ku biziga bibiri.",
+    "article": "Ingingo ya 2",
+    "source_page": 20
+  },
+  {
+    "number": 8,
+    "term": "Inzira y’igitaka",
+    "term_fr": "Chemin de terre",
+    "definition": "Inzira nyabagendwa yagutse kurusha akayira ariko ubusanzwe ikaba itaragenewe ibinyabiziga bibiri. Inzira y’igitaka ikomeza kwitwa ityo iyo isa n’umuhanda igihe irasutse gusa mu yindi nzira nyabagendwa.",
+    "article": "Ingingo ya 2",
+    "source_page": 20
+  },
+  {
+    "number": 9,
+    "term": "Urusisiro",
+    "term_fr": "Agglomération",
+    "definition": "1. Ahantu hose hari amazu yegeranye cyangwa afatanye ari kuruhande urwo arirwo rwose rw’inzira nyabagendwa; cyangwa se 2. Aho binjirira n’aho basohokera hagaragazwa n’ibyapa by’aho hantu.",
+    "article": "Ingingo ya 2",
+    "source_page": 21
+  },
+  {
+    "number": 10,
+    "term": "Umuyobozi",
+    "term_fr": "Conducteur",
+    "definition": "Umuntu wese utwaye ikinyabiziga, cyangwa uyobora mu nzira nyabagendwa inyamaswa zikurura, zikorera cyangwa zigenderwaho; cyangwa amatungo, yaba ubushyo cyangwa imwe imwe.",
+    "article": "Ingingo ya 2",
+    "source_page": 21
+  },
+  {
+    "number": 11,
+    "term": "Umukozi ubifitiye ububasha",
+    "term_fr": "Agent qualifié",
+    "definition": "Umwe mu bakozi bambaye kuburyo bugaragaza ibimenyetso by’imirimo ashinzwe; (urugero: abapolisi bo mu mutwe ushinzwe umutekano wo mu muhanda).",
+    "article": "Ingingo ya 2",
+    "source_page": 21
+  },
+  {
+    "number": 12,
+    "term": "Ikinyabiziga",
+    "term_fr": "Véhicule",
+    "definition": "Ikintu cyose gikoreshwa mu gutwara abantu n’ibintu ku butaka; kimwe n’igikoresho cyose kigendeshwa gihingishwa, gikoreshwa mu nganda cyangwa ahandi.",
+    "article": "Ingingo ya 2",
+    "source_page": 21
+  },
+  {
+    "number": 13,
+    "term": "Ikinyamitende",
+    "term_fr": "Cycle",
+    "definition": "Ikinyabiziga cyose, nk’igare ry’ikiziga 1, 2, 3, cyangwa bine kigendeshwa n’ingufu z’abantu bakiriho; nko kuba bakoresha ibirenge cyangwa intoki.",
+    "article": "Ingingo ya 2",
+    "source_page": 21
+  },
+  {
+    "number": 14,
+    "term": "Igare na Velomoteri",
+    "term_fr": "Bicyclette et Cyclomoteur",
+    "definition": "a) Igare: Ikinyamitende cy’ibiziga bibiri. b) Velomoteri: Ikinyabiziga gifite ibiziga bitarenze bibiri, kandi gifite moteri itarengeje santimetero kibe 50 cyangwa imbaraga zitarenga KvA4 (Kaveya), icyindi kandi hakurikijwe uko cyakozwe, umuvuduko wacyo nturenge km 60 mu isaha. N.B: Igare na Velomoteri bidahetse ababigendaho ntibibarwa nk’ibinyabiziga.",
+    "article": "Ingingo ya 2",
+    "source_page": 21
+  },
+  {
+    "number": 15,
+    "term": "Ipikipiki",
+    "term_fr": "Motocyclette",
+    "definition": "Ikinyabiziga cyose cy’ibiziga bibiri gifite moteri, ukuyemo za Velomoteri.",
+    "article": "Ingingo ya 2",
+    "source_page": 21
+  },
+  {
+    "number": 16,
+    "term": "Ikinyamitende itatu n’ikinyamitende ine bifite moteri",
+    "term_fr": "Tricycle et quadricycle à moteur",
+    "definition": "Ibinyabiziga by’ibiziga bitatu cyangwa bine bitarengeje uburemere bw’ibiro 400, kandi moteri ikaba itarengeje santimetero kibe 350 cyangwa imbaraga zayo zikaba zitarengeje KvA15. N.B: Gushyira intebe kuruhande cyangwa rumoroki inyuma yibi binyabiziga ntacyo bihindura kurwego birimo.",
+    "article": "Ingingo ya 2",
+    "source_page": 21
+  },
+  {
+    "number": 17,
+    "term": "Ikinyabiziga kigendeshwa na moteri",
+    "term_fr": "Véhicule à moteur",
+    "definition": "Ikinyabiziga cyose gifite moteri kigendesha kandi kigendeshwa n’ibikigize.",
+    "article": "Ingingo ya 2",
+    "source_page": 21
+  },
+  {
+    "number": 18,
+    "term": "Imodoka",
+    "term_fr": "Automobile",
+    "definition": "Ikinyabiziga cyose kigendeshwa na moteri, uretse velomoteri, ipikipiki, ibinyamitende itatu cyangwa ine bifite moteri, n’imashini zihinga n’izindi zikurura zifite moteri; zikaba kandi ku busanzwe zitwara munzira nyabagendwa abantu cyangwa ibintu cg se zigenewe gukurura ibindi binyabiziga bitwara abantu cyangwa ibintu.",
+    "article": "Ingingo ya 2",
+    "source_page": 21
+  },
+  {
+    "number": 19,
+    "term": "Rumoruki",
+    "term_fr": "Remorque",
+    "definition": "Ikinyabiziga kigenewe gukururwa n’ikindi; iryo jambo rikoreshwa no kuri za Makuzungu.",
+    "article": "Ingingo ya 2",
+    "source_page": 21
+  },
+  {
+    "number": 20,
+    "term": "Makuzungu",
+    "term_fr": "Semi-remorque",
+    "definition": "Romoruki iyo ari yo yose yagenewe gufatishwa ku kinyabiziga gikurura kuburyo igice cyayo kiba kiyiryamyeho, kandi igice cy’uburemere bwacyo ndetse n’ubw’ibyo itwaye bukaba bushikamiye icyo kinyabiziga.",
+    "article": "Ingingo ya 2",
+    "source_page": 21
+  },
+  {
+    "number": 21,
+    "term": "Rumoroki ntoya",
+    "term_fr": "Remorque légère",
+    "definition": "Rumoruki iyo ariyo yose ifite uburemere butarenga ibiro 750 (750 kg).",
+    "article": "Ingingo ya 2",
+    "source_page": 21
+  },
+  {
+    "number": 22,
+    "term": "Ibinyabiziga bikomatanye n’ibinyabiziga bikururana",
+    "term_fr": "Train de véhicules",
+    "definition": "Ibinyabiziga bifatanye bikagenda nk’aho ari kimwe.",
+    "article": "Ingingo ya 2",
+    "source_page": 21
+  },
+  {
+    "number": 23,
+    "term": "Ikinyabiziga gifatanije",
+    "term_fr": "Véhicule articulé",
+    "definition": "Ikinyabiziga gikomatanye, kimwe ari ikinyabiziga gikurura ikindi ari makuzungu.",
+    "article": "Ingingo ya 2",
+    "source_page": 22
+  },
+  {
+    "number": 24,
+    "term": "Ibinyabiziga gikurura kabiri",
+    "term_fr": "Ensemble de véhicules",
+    "definition": "Bivuga ibinyabiziga bikomatanye bikururana bigizwe n’ikinyabiziga gifatanije kandi kiriho romoroki yacyo.",
+    "article": "Ingingo ya 2",
+    "source_page": 22
+  },
+  {
+    "number": 25,
+    "term": "Uburemere bwite n’uburemere bw’ikidapakiye",
+    "term_fr": "Poids à vide et poids non chargé",
+    "definition": "Uburemere bw’ikinyabiziga kizima n’ibikoresho byacyo ngombwa hatabariwemo abagitwaye, abantu cg imizigo cyikoreye; gifite karisori kandi cyuzuye lisansi, mazutu cg gazi, amazi n’amavuta.",
+    "article": "Ingingo ya 2",
+    "source_page": 22
+  },
+  {
+    "number": 26,
+    "term": "Uburemere bwikorewe",
+    "term_fr": "Poids en charge",
+    "definition": "Uburemere bwite bw’ikinyabiziga kizima hongereweho uburemere bw’imizigo cyikoreye, ubw’ugitwaye n’ubw’umuntu wese gitwaye.",
+    "article": "Ingingo ya 2",
+    "source_page": 22
+  },
+  {
+    "number": 27,
+    "term": "Uburemere ntarengwa bwemewe (Uburemere bugendanwa)",
+    "term_fr": "Poids maximal autorisé (P.M.A)",
+    "definition": "Uburemere bwose ntarengwa bw’ikinyabiziga bwemejwe hakurikijwe ibivugwa muri iri teka n’uburemere ntarengwa bwemewe bw’ibinyabiziga bikomatanye, bw’ikinyabiziga gifatanije cg bw’ikinyabiziba gikururana kabiri, bwitwa nanone Uburemere bugendanwa.",
+    "article": "Ingingo ya 2",
+    "source_page": 22
+  },
+  {
+    "number": 28,
+    "term": "Guhagarara umwanya muto",
+    "term_fr": "Arrêt",
+    "definition": "Igihe cya ngombwa ikinyabiziga kimara gihagaze kugirango abantu cg ibintu byinjire cyangwa bisohoke.",
+    "article": "Ingingo ya 2",
+    "source_page": 22
+  },
+  {
+    "number": 29,
+    "term": "Guhagarara umwanya munini",
+    "term_fr": "Stationnement",
+    "definition": "Igihe kirenze icya ngombwa ikinyabiziga kimara gihagaze kugirango abantu cg ibintu byinjire cg bisohoke.",
+    "article": "Ingingo ya 2",
+    "source_page": 22
+  },
+  {
+    "number": 30,
+    "term": "Akagarura-rumuri",
+    "term_fr": "Catadioptre / Réflecteur",
+    "definition": "Akantu karabagirana gasubiza imirasire y’urumuri ku kintu kiyohereje.",
+    "article": "Ingingo ya 2",
+    "source_page": 22
+  },
+  {
+    "number": 31,
+    "term": "Ikinyabiziga ndakumirwa",
+    "term_fr": "Véhicule prioritaire",
+    "definition": "Ibinyabiziga by’abapolisi, ibizimya-nkongi ndetse n’ibinyabiziga bitwara abarwayi, iyo bijya aho bigomba gutabara byihutirwa; kandi bikarangwa n’intabaza irabagirana cg irangurura ijwi.",
+    "article": "Ingingo ya 2",
+    "source_page": 22
+  },
+  {
+    "number": 32,
+    "term": "Amatara y’urugendo (Amatara maremare)",
+    "term_fr": "Feux de route",
+    "definition": "Amatara y’ikinyabiziga amurika umuhanda mu ntambwe ndende, imbere y’icyo kinyabiziga.",
+    "article": "Ingingo ya 2",
+    "source_page": 22
+  },
+  {
+    "number": 33,
+    "term": "Amatara yo kubisikana (Amatara magufi)",
+    "term_fr": "Feux de croisement",
+    "definition": "Amatara y’ikinyabiziga amurika inzira nyabagendwa imbere y’icyo kinyabiziga bitagombye guhuma cyangwa kubangamira abayobozi bava mucyerekezo.",
+    "article": "Ingingo ya 2",
+    "source_page": 22
+  },
+  {
+    "number": 34,
+    "term": "Amatara ndangambere",
+    "term_fr": "Feux de position avant",
+    "definition": "Amatara y’ikinyabiziga akiranga, kandi agaragaza ubugari bwacyo burebewe imbere.",
+    "article": "Ingingo ya 2",
+    "source_page": 22
+  },
+  {
+    "number": 35,
+    "term": "Amatara ndanganyuma",
+    "term_fr": "Feux de position arrière",
+    "definition": "Amatara y’ikinyabiziga akiranga, kandi yerekana ubugari bwacyo kirebewe inyuma.",
+    "article": "Ingingo ya 2",
+    "source_page": 22
+  },
+  {
+    "number": 36,
+    "term": "Amatara kamena-bihu y’imbere",
+    "term_fr": "Feux de brouillard avant",
+    "definition": "Amatara y’ikinyabiziga abonesha neza inzira imbere yacyo igihe: 1. cy’igihu, 2. cy’imvura nyinshi, 3. cy’urubura cg 4. cy’umukungugu.",
+    "article": "Ingingo ya 2",
+    "source_page": 22
+  },
+  {
+    "number": 37,
+    "term": "Amatara kamena-bihu y’inyuma",
+    "term_fr": "Feux de brouillard arrière",
+    "definition": "Amatara y’ikinyabiziga akiranga kandi yerekana ubugari bwacyo kirebewe inyuma igihe: 1. cy’igihu, 2. cy’imvura nyinshi, 3. cy’urubura cg 4. cy’umukungugu.",
+    "article": "Ingingo ya 2",
+    "source_page": 22
+  },
+  {
+    "number": 38,
+    "term": "Amatara yo gusubira inyuma",
+    "term_fr": "Feux de marche arrière",
+    "definition": "Amatara y’ikinyabiziga agenewe 1. Kubonesha inzira inyuma y’ikinyabiziga no 2. Kumenyesha abandi bagenzi ko ikinyabiziga gisubira inyuma; cyangwa 3. Kigiye gusubira inyuma.",
+    "article": "Ingingo ya 2",
+    "source_page": 23
+  },
+  {
+    "number": 39,
+    "term": "Itara ndanga cyerekezo cyangwa (Ikinyoteri)",
+    "term_fr": "Feux indicateurs de direction (Clignotants)",
+    "definition": "Itara ry’ikinyabiziga rigonewe kwereka abandi bagenzi ko umuyobozi ashaka kugana iburyo cyangwa ibumoso.",
+    "article": "Ingingo ya 2",
+    "source_page": 23
+  },
+  {
+    "number": 40,
+    "term": "Itara rishakisha n’Itara rihindukizwa",
+    "term_fr": "Feu orientable et feu chercheur",
+    "definition": "Itara ry’ikinyabiziga gishobora guhindukizwa n’umuyobozi bidatewe n’uko ikinyabiziga kigenda, kandi rishobora kumurika ikintu kiri munzira nyabagendwa cyangwa hirya yayo.",
+    "article": "Ingingo ya 2",
+    "source_page": 23
+  },
+  {
+    "number": 41,
+    "term": "Itara ndangamubyimba n’itara ndanga burumbarare",
+    "term_fr": "Feux d’encombrement",
+    "definition": "Itara ry’ikinyabiziga ryerekana ubugari bwacyo, ahagana imbere cyangwa inyuma igihe uburebure bwacyo burenga metero 6 cyangwa iyo ubugari bwacyo, habariwemo ibyo cyikoreye burenga metero 2.10.",
+    "article": "Ingingo ya 2",
+    "source_page": 23
+  },
+  {
+    "number": 42,
+    "term": "Ubuso bubonesha",
+    "term_fr": "Plage éclairante",
+    "definition": "Kubyerekeye amatara: Ni ubuso busohokana urumuri naho kubyerekeye utugarurarumuri bikavuga: Ubuso burabagiranamo urumuri.",
+    "article": "Ingingo ya 2",
+    "source_page": 23
+  },
+  {
+    "number": 43,
+    "term": "Itara ry’Umuhondo",
+    "term_fr": "Feu jaune / orange",
+    "definition": "Itara ryose ry’umuhondo winganje; ry’umuhondo nyawo cyangwa usa n’icunga hakurikijwe ibisobanuro bivugwa ku mugereka wa 7 w’iri teka.",
+    "article": "Ingingo ya 2",
+    "source_page": 23
+  }
+]

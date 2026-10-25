@@ -1,0 +1,258 @@
+[
+  {
+    "article": "110.2",
+    "page": 17,
+    "name_rw": "Umurongo w'umweru urombereje",
+    "name_fr": "Ligne blanche continue",
+    "rule_rw": "Umuyobozi wese abujijwe kuwurenga.",
+    "rule_fr": "Il est interdit à tout conducteur de franchir une ligne continue.",
+    "crop_box": [
+      120,
+      160,
+      310,
+      230
+    ],
+    "image_filename": "marking_art_110_2.png",
+    "image_path": "markings/marking_art_110_2.png"
+  },
+  {
+    "article": "110.3.1",
+    "page": 17,
+    "name_rw": "Umurongo w'umweru udafatanye (uciyemo uduce)",
+    "name_fr": "Ligne blanche discontinue",
+    "rule_rw": "Umuyobozi wese abujijwe kuwurenga keretse iyo anyura ku kindi kinyabiziga, gukatira ibumoso, guhindukira cyangwa kujya mukindi gice cy'umuhanda.",
+    "rule_fr": "Il est interdit de la franchir sauf pour dépasser, virer à gauche, faire demi-tour ou changer de voie.",
+    "crop_box": [
+      120,
+      275,
+      310,
+      340
+    ],
+    "image_filename": "marking_art_110_3_1.png",
+    "image_path": "markings/marking_art_110_3_1.png"
+  },
+  {
+    "article": "110.3.2",
+    "page": 17,
+    "name_rw": "Uduce tw'umurongo uciyemo uduce tugufi twegeranye",
+    "name_fr": "Ligne d'avertissement / de rapprochement",
+    "rule_rw": "Ahegereye umurongo wera urombereje kandi habuzwa rwose kurenga uwo murongo.",
+    "rule_fr": "Annonce l'approche d'une ligne continue.",
+    "crop_box": [
+      120,
+      355,
+      310,
+      440
+    ],
+    "image_filename": "marking_art_110_3_2.png",
+    "image_path": "markings/marking_art_110_3_2.png"
+  },
+  {
+    "article": "110.4",
+    "page": 17,
+    "name_rw": "Umurongo wera urombereje n'umurongo wera uciyemo uduce ibangikanye",
+    "name_fr": "Lignes mixtes (continue et discontinue accolées)",
+    "rule_rw": "Yerekana ko umuyobozi agomba kwita gusa ku murongo wegereye ikinyabiziga cye. Ibinyabiziga biri mu ruhande rw'umurongo urombereje ntibishobora kuwurenga, naho ibiri mu ruhande rw'uduce bishobora kuwurenga.",
+    "rule_fr": "Le conducteur ne doit tenir compte que de la ligne située de son côté.",
+    "crop_box": [
+      120,
+      460,
+      310,
+      535
+    ],
+    "image_filename": "marking_art_110_4.png",
+    "image_path": "markings/marking_art_110_4.png"
+  },
+  {
+    "article": "110.5",
+    "page": 17,
+    "name_rw": "Igice cy'umuhanda gikikijwe n'uduce tugufi tudafatanye tw'ibara ryera (Aho bisi zihagarara)",
+    "name_fr": "Bande réservée aux véhicules des services réguliers de transport en commun",
+    "rule_rw": "Gitegeka ikinyabiziga cyose cya Leta cyagenewe gutwara abantu muri rusange kunyura muri icyo gice.",
+    "rule_fr": "Voie réservée aux autobus.",
+    "crop_box": [
+      120,
+      635,
+      310,
+      705
+    ],
+    "image_filename": "marking_art_110_5.png",
+    "image_path": "markings/marking_art_110_5.png"
+  },
+  {
+    "article": "110.6",
+    "page": 17,
+    "name_rw": "Inzira y'ibinyamitende (imirongo ibiri y'umweru iciyemo uduce iteganye)",
+    "name_fr": "Piste cyclable délimitée",
+    "rule_rw": "Igice cy'inzira nyabagendwa gikikijwe n'imirongo ibiri y'umweru iciyemo uduce kandi iteganye, ifite ubugari budahagije kugirango imodoka zibe zahanyura: Inzira y'ibinyamitende.",
+    "rule_fr": "Partie de la voie publique réservée aux cycles.",
+    "crop_box": [
+      120,
+      740,
+      310,
+      805
+    ],
+    "image_filename": "marking_art_110_6.png",
+    "image_path": "markings/marking_art_110_6.png"
+  },
+  {
+    "article": "110.7",
+    "page": 17,
+    "name_rw": "Umurongo wera urombereje uciye ku nkengero nyayo y'umuhanda",
+    "name_fr": "Ligne de rive continue",
+    "rule_rw": "Umurongo wera urombereje uciye ku nkengero nyayo y'umuhanda, umusezero w'inzira y'abanyamaguru cyangwa ku nkengero zigiye hejuru: werekana aho umuhanda ugarukira.",
+    "rule_fr": "Délimite le bord réel de la chaussée.",
+    "crop_box": [
+      120,
+      825,
+      310,
+      900
+    ],
+    "image_filename": "marking_art_110_7.png",
+    "image_path": "markings/marking_art_110_7.png"
+  },
+  {
+    "article": "110.8",
+    "page": 18,
+    "name_rw": "Umurongo w'umuhondo uciyemo uduce ku nkengero nyayo y'umuhanda",
+    "name_fr": "Ligne jaune discontinue sur la bordure",
+    "rule_rw": "Ivuga ko bibujijwe guhagarara umwanya munini ku burebure bw'uwo murongo.",
+    "rule_fr": "Stationnement interdit le long de cette ligne.",
+    "crop_box": [
+      130,
+      105,
+      315,
+      175
+    ],
+    "image_filename": "marking_art_110_8.png",
+    "image_path": "markings/marking_art_110_8.png"
+  },
+  {
+    "article": "110.9",
+    "page": 18,
+    "name_rw": "Umurongo wera mugari urombereje werekana inkengero itari nyayo y'umuhanda",
+    "name_fr": "Ligne blanche large de rive fictive",
+    "rule_rw": "Bivuga ko igice cy'umuhanda kiri hirya y'uwo murongo kigenewe guhagararwamo umwanya muto cyangwa munini.",
+    "rule_fr": "Délimite une zone de stationnement ou bande d'arrêt.",
+    "crop_box": [
+      130,
+      205,
+      315,
+      275
+    ],
+    "image_filename": "marking_art_110_9.png",
+    "image_path": "markings/marking_art_110_9.png"
+  },
+  {
+    "article": "111.1",
+    "page": 18,
+    "name_rw": "Umurongo wera munini urombereje nyanguni ku nkengero y'umuhanda (STOP)",
+    "name_fr": "Ligne d'arrêt (STOP)",
+    "rule_rw": "Aho ibinyabiziga bigomba guhagarara hakurikijwe icyapa B.2 (STOP), cyangwa icyapa kimurika cyerekana uburyo bwo kugenda mu muhanda.",
+    "rule_fr": "Ligne transversale où les conducteurs doivent marquer l'arrêt.",
+    "crop_box": [
+      130,
+      500,
+      315,
+      575
+    ],
+    "image_filename": "marking_art_111_1.png",
+    "image_path": "markings/marking_art_111_1.png"
+  },
+  {
+    "article": "111.2",
+    "page": 18,
+    "name_rw": "Umurongo ugizwe naza mpandeshatu nyampanga zera (TANGA INZIRA)",
+    "name_fr": "Ligne de cédez le passage (dents de requin)",
+    "rule_rw": "Ahantu ibinyabiziga bigomba, iyo ari ngombwa, guhagarara umwanya muto bishaka gutanga inzira hakurikijwe icyapa B.1 (TANGA INZIRA).",
+    "rule_fr": "Ligne transversale constituée de triangles blancs.",
+    "crop_box": [
+      130,
+      595,
+      315,
+      675
+    ],
+    "image_filename": "marking_art_111_2.png",
+    "image_path": "markings/marking_art_111_2.png"
+  },
+  {
+    "article": "111.3",
+    "page": 18,
+    "name_rw": "Inzira y'abanyamaguru (Ibice by'umuhanda byera bigari biteganye)",
+    "name_fr": "Passage pour piétons (bandes blanches zébrées)",
+    "rule_rw": "Inzira y'abanyamaguru: ibice by'umuhanda byera bigari biteganye n'umurongo ugabanya umuhanda mo kabiri.",
+    "rule_fr": "Passage pour piétons délimité par des bandes longitudinales blanches.",
+    "crop_box": [
+      130,
+      700,
+      315,
+      775
+    ],
+    "image_filename": "marking_art_111_3.png",
+    "image_path": "markings/marking_art_111_3.png"
+  },
+  {
+    "article": "112.1",
+    "page": 19,
+    "name_rw": "Uturangacyerekezo tw'ibara ryera ahegereye amasangano",
+    "name_fr": "Flèches de sélection",
+    "rule_rw": "Uturanga cyerekezo dutoranya twerekana igisate cy'umuhanda cyo gukoresha mu kwinjira mu cyerekezo cyerekanwa n'uturanga cyerekezo.",
+    "rule_fr": "Flèches de sélection indiquant la voie à suivre pour une direction déterminée.",
+    "crop_box": [
+      130,
+      85,
+      345,
+      175
+    ],
+    "image_filename": "marking_art_112_1.png",
+    "image_path": "markings/marking_art_112_1.png"
+  },
+  {
+    "article": "112.2",
+    "page": 19,
+    "name_rw": "Uturanga cyerekezo tw'ibara ryera twuzuza umurongo uciyemo uduce (Uturanga-gukata)",
+    "name_fr": "Flèches de rabattement",
+    "rule_rw": "Uturanga cyerekezo tw'ibara ryera twuzuza umurongo uciyemo uduce umenyesha ko umurongo urombereje uri hafi: uturanga-gukata tumenyesha igabanuka ry'umubare w'ibisate by'umuhanda bishobora gukoreshwa.",
+    "rule_fr": "Flèches de rabattement annonçant une réduction des voies utilisables.",
+    "crop_box": [
+      130,
+      220,
+      345,
+      305
+    ],
+    "image_filename": "marking_art_112_2.png",
+    "image_path": "markings/marking_art_112_2.png"
+  },
+  {
+    "article": "112.5",
+    "page": 19,
+    "name_rw": "Inyandiko z'ibara ryera ziri iruhande rw'icyapa E.19 (Imirongo ya bisi izigaziga)",
+    "name_fr": "Ligne en zigzag pour arrêt d'autobus",
+    "rule_rw": "Bigaragaza kandi bigasobanura ahantu habujijwe guhagarara umwanya munini nk'uko biteganyijwe mu ngingo ya 33.3.",
+    "rule_fr": "Lignes en zigzag interdisant le stationnement près des arrêts de bus.",
+    "crop_box": [
+      130,
+      590,
+      320,
+      665
+    ],
+    "image_filename": "marking_art_112_5.png",
+    "image_path": "markings/marking_art_112_5.png"
+  },
+  {
+    "article": "112.7",
+    "page": 19,
+    "name_rw": "Imyanya igaragajwe n'imirongo yera iteganye iciye mu mpuzampembe (Hachures)",
+    "name_fr": "Marques d'îlots et zones d'évitement (hachures)",
+    "rule_rw": "Imyanya ibujijwe kunyurwamo n'ibinyabiziga cyangwa itegeka ibinyabiziga gufata icyerekezo runaka.",
+    "rule_fr": "Zones zébrées interdites à la circulation.",
+    "crop_box": [
+      130,
+      695,
+      335,
+      775
+    ],
+    "image_filename": "marking_art_112_7.png",
+    "image_path": "markings/marking_art_112_7.png"
+  }
+]
