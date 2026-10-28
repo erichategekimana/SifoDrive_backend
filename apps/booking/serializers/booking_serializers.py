@@ -18,12 +18,40 @@ class BookingApplicationCreateSerializer(serializers.Serializer):
     first_name = serializers.CharField(max_length=100)
     last_name = serializers.CharField(max_length=100)
     phone_number = serializers.CharField(max_length=25)
-    national_id = serializers.CharField(max_length=16, min_length=16)
-    date_of_birth = serializers.DateField()
-    license_category = serializers.ChoiceField(choices=LicenseCategory.choices)
-    preferred_district = serializers.ChoiceField(choices=RwandaDistrict.choices)
-    working_site = serializers.ChoiceField(
-        choices=KicukiroWorkingSite.choices,
+    national_id = serializers.CharField(max_length=16, required=False, allow_null=True, allow_blank=True)
+    date_of_birth = serializers.DateField(required=False, allow_null=True)
+    license_category = serializers.ChoiceField(
+        choices=LicenseCategory.choices,
+        required=False,
+        allow_null=True,
+        allow_blank=True,
+    )
+    provisional_license_number = serializers.CharField(
+        max_length=50,
+        required=False,
+        allow_null=True,
+        allow_blank=True,
+    )
+    preferred_district = serializers.CharField(
+        max_length=50,
+        required=False,
+        allow_null=True,
+        allow_blank=True,
+    )
+    testing_center = serializers.CharField(
+        max_length=255,
+        required=False,
+        allow_null=True,
+        allow_blank=True,
+    )
+    working_site = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_null=True,
+        allow_blank=True,
+    )
+    teacher_name = serializers.CharField(
+        max_length=150,
         required=False,
         allow_null=True,
         allow_blank=True,
@@ -31,6 +59,8 @@ class BookingApplicationCreateSerializer(serializers.Serializer):
     partner_teacher_id = serializers.UUIDField(required=False, allow_null=True)
 
     def validate_national_id(self, value):
+        if not value:
+            return None
         cleaned = value.strip()
         if not (cleaned.isdigit() and len(cleaned) == 16):
             raise serializers.ValidationError("Rwandan National ID must be exactly 16 numeric digits.")
@@ -43,6 +73,8 @@ class BookingApplicationCreateSerializer(serializers.Serializer):
         return normalized
 
     def validate_date_of_birth(self, value):
+        if not value:
+            return None
         today = date.today()
         age = today.year - value.year - ((today.month, today.day) < (value.month, value.day))
         if age < 18:
@@ -50,7 +82,7 @@ class BookingApplicationCreateSerializer(serializers.Serializer):
         return value
 
     def validate(self, attrs):
-        district = attrs.get("preferred_district", "").upper()
+        district = (attrs.get("preferred_district") or "").upper()
         site = attrs.get("working_site")
 
         # Specific business rule: If Kicukiro, working_site is mandatory
@@ -62,12 +94,11 @@ class BookingApplicationCreateSerializer(serializers.Serializer):
                         "Choose either 'BUSANZA AUTOMATED CENTER' or 'BUSANZA SITE (KIC)'."
                     )
                 })
-            if site not in KicukiroWorkingSite.values:
+            clean_site = site.strip().upper()
+            if clean_site not in [s.upper() for s in KicukiroWorkingSite.values]:
                 raise serializers.ValidationError({
                     "working_site": f"Invalid site for Kicukiro. Must be one of: {list(KicukiroWorkingSite.values)}"
                 })
-        else:
-            attrs["working_site"] = None
 
         return attrs
 
@@ -90,11 +121,14 @@ class BookingApplicationListSerializer(serializers.ModelSerializer):
             "phone_number",
             "phone_masked",
             "license_category",
+            "provisional_license_number",
             "preferred_district",
+            "testing_center",
             "working_site",
             "price_rwf",
             "state",
             "partner_teacher_name",
+            "teacher_name",
             "irembo_billing_number",
             "confirmed_test_date",
             "confirmed_venue",
@@ -131,10 +165,13 @@ class BookingApplicationDetailSerializer(serializers.ModelSerializer):
             "date_of_birth",
             "decrypted_national_id",
             "license_category",
+            "provisional_license_number",
             "preferred_district",
+            "testing_center",
             "working_site",
             "price_rwf",
             "partner_teacher",
+            "teacher_name",
             "state",
             "assigned_agent",
             "assigned_agent_name",

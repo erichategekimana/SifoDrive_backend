@@ -55,9 +55,12 @@ class BookingApplicationAdmin(admin.ModelAdmin):
         "full_name",
         "phone_number",
         "license_category",
+        "provisional_license_number",
         "preferred_district",
+        "testing_center",
         "working_site",
         "partner_teacher",
+        "teacher_name",
         "formatted_price",
         "state_badge",
         "irembo_billing_number",
@@ -75,6 +78,7 @@ class BookingApplicationAdmin(admin.ModelAdmin):
         "first_name",
         "last_name",
         "phone_number",
+        "provisional_license_number",
         "irembo_billing_number",
         "irembo_application_number",
     ]
@@ -94,7 +98,7 @@ class BookingApplicationAdmin(admin.ModelAdmin):
             "fields": ("ticket_number", "applicant", "first_name", "last_name", "phone_number", "date_of_birth")
         }),
         (_("Test Specifications"), {
-            "fields": ("license_category", "preferred_district", "working_site", "partner_teacher", "price_rwf")
+            "fields": ("license_category", "provisional_license_number", "preferred_district", "testing_center", "working_site", "partner_teacher", "teacher_name", "price_rwf")
         }),
         (_("Workflow & Agent Assignment"), {
             "fields": ("state", "assigned_agent", "agent_notes")

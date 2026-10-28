@@ -12,7 +12,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.models import BaseModel
-from apps.core.utils import get_pii_encryptor
+from apps.core.utils import get_pii_encryptor, PhoneNumberUtils
 from .choices import BookingState, KicukiroWorkingSite, LicenseCategory, RwandaDistrict
 from .category_price import CategoryPrice
 from .partner_teacher import PartnerTeacher
@@ -57,18 +57,44 @@ class BookingApplication(BaseModel):
         blank=True,
         help_text=_("HMAC-SHA256 hash for deduplication/lookup without decrypting"),
     )
-    date_of_birth = models.DateField(_("Date of Birth"))
+    date_of_birth = models.DateField(
+        _("Date of Birth"),
+        null=True,
+        blank=True,
+        help_text=_("Applicant date of birth (optional)"),
+    )
     license_category = models.CharField(
         _("License Category"),
         max_length=5,
         choices=LicenseCategory.choices,
         db_index=True,
+        null=True,
+        blank=True,
+        help_text=_("License category (optional)"),
+    )
+    provisional_license_number = models.CharField(
+        _("Provisional License Number"),
+        max_length=50,
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text=_("Rwandan provisional driving license number (optional)"),
     )
     preferred_district = models.CharField(
         _("Preferred District"),
         max_length=50,
         choices=RwandaDistrict.choices,
         db_index=True,
+        null=True,
+        blank=True,
+        help_text=_("Preferred district (optional)"),
+    )
+    testing_center = models.CharField(
+        _("Testing Center / Preferred Hub"),
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text=_("Testing Center / Preferred Hub (optional)"),
     )
     working_site = models.CharField(
         _("Working Site"),
@@ -89,10 +115,18 @@ class BookingApplication(BaseModel):
         verbose_name=_("Partner Driving Teacher"),
         help_text=_("Private instructor who taught the student (optional)"),
     )
+    teacher_name = models.CharField(
+        _("Teacher / Instructor Name"),
+        max_length=150,
+        null=True,
+        blank=True,
+        help_text=_("Selected partner driving instructor or school teacher"),
+    )
 
     # Financial / Tier Snapshot
     price_rwf = models.PositiveIntegerField(
         _("Price (RWF)"),
+        default=0,
         help_text=_("Service price recorded at the time of booking"),
     )
 
@@ -212,6 +246,15 @@ class BookingApplication(BaseModel):
                     "date_of_birth": _("Applicant must be at least 18 years old to apply for a driving test.")
                 })
 
+        # 3. Rwandan phone number validation (078, 072, 073, 079)
+        if self.phone_number:
+            if not PhoneNumberUtils.is_valid(self.phone_number):
+                raise ValidationError({
+                    "phone_number": _(
+                        "Invalid Rwandan phone number. Must start with 078, 072, or 073 and contain 10 digits."
+                    )
+                })
+
     def save(self, *args, **kwargs):
         # Generate ticket number if not set
         if not self.ticket_number:
@@ -222,7 +265,10 @@ class BookingApplication(BaseModel):
 
         # Assign price snapshot from CategoryPrice if not set
         if not self.price_rwf:
-            self.price_rwf = CategoryPrice.get_price_for_category(self.license_category)
+            if self.license_category:
+                self.price_rwf = CategoryPrice.get_price_for_category(self.license_category)
+            else:
+                self.price_rwf = 0
 
         self.full_clean()
         super().save(*args, **kwargs)

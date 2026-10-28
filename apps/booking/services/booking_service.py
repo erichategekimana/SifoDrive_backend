@@ -40,11 +40,14 @@ class BookingService:
         first_name: str,
         last_name: str,
         phone_number: str,
-        national_id: str,
-        date_of_birth: Union[date, str],
-        license_category: str,
-        preferred_district: str,
+        national_id: Optional[str] = None,
+        date_of_birth: Optional[Union[date, str]] = None,
+        license_category: Optional[str] = None,
+        provisional_license_number: Optional[str] = None,
+        preferred_district: Optional[str] = None,
+        testing_center: Optional[str] = None,
         working_site: Optional[str] = None,
+        teacher_name: Optional[str] = None,
         partner_teacher_id: Optional[str] = None,
         request=None,
     ) -> BookingApplication:
@@ -59,42 +62,48 @@ class BookingService:
                 {"phone_number": f"Invalid Rwandan phone number format: {phone_number}. Enter a valid phone number (e.g. +250788123456)."}
             )
 
-        # 2. Validate National ID format (16 digits in Rwanda)
-        clean_nid = national_id.strip()
-        if not (clean_nid.isdigit() and len(clean_nid) == 16):
+        # 2. Validate National ID format (16 digits in Rwanda if provided)
+        clean_nid = national_id.strip() if national_id else None
+        if clean_nid and not (clean_nid.isdigit() and len(clean_nid) == 16):
             raise ValidationException(
                 {"national_id": "National ID must be exactly 16 numeric digits."}
             )
 
-        # 3. Parse date of birth & check minimum age (18 years)
+        # 3. Parse date of birth & check minimum age (18 years) if provided
         dob = date_of_birth
-        if isinstance(dob, str):
-            try:
-                dob = datetime.strptime(dob, "%Y-%m-%d").date()
-            except ValueError:
+        if dob:
+            if isinstance(dob, str):
+                try:
+                    dob = datetime.strptime(dob, "%Y-%m-%d").date()
+                except ValueError:
+                    raise ValidationException(
+                        {"date_of_birth": "Invalid date of birth format. Use YYYY-MM-DD."}
+                    )
+
+            today = date.today()
+            age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+            if age < 18:
                 raise ValidationException(
-                    {"date_of_birth": "Invalid date of birth format. Use YYYY-MM-DD."}
+                    {"date_of_birth": "Applicant must be at least 18 years old to apply for a driving test."}
                 )
 
-        today = date.today()
-        age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
-        if age < 18:
-            raise ValidationException(
-                {"date_of_birth": "Applicant must be at least 18 years old to apply for a driving test."}
-            )
+        # 4. Validate License Category (optional)
+        clean_category = None
+        if license_category:
+            clean_category = license_category.strip().upper()
+            if clean_category not in LicenseCategory.values:
+                raise ValidationException(
+                    {"license_category": f"Allowed categories are: {list(LicenseCategory.values)}"}
+                )
 
-        # 4. Validate License Category
-        if license_category not in LicenseCategory.values:
-            raise ValidationException(
-                {"license_category": f"Allowed categories are: {list(LicenseCategory.values)}"}
-            )
-
-        # 5. Validate Preferred District
-        clean_district = preferred_district.strip().upper()
-        if clean_district not in RwandaDistrict.values:
-            raise ValidationException(
-                {"preferred_district": "Must be a recognized Rwandan district."}
-            )
+        # 5. Validate Preferred District (optional)
+        clean_district = None
+        if preferred_district:
+            clean_district = preferred_district.strip().upper()
+            if clean_district not in RwandaDistrict.values:
+                raise ValidationException(
+                    {"preferred_district": "Must be a recognized Rwandan district."}
+                )
 
         # 6. Validate Kicukiro Working Site Requirement
         site_val = None
@@ -115,6 +124,8 @@ class BookingService:
                     {"working_site": f"Must be one of: {list(KicukiroWorkingSite.values)}"}
                 )
             site_val = valid_sites[clean_site]
+        elif working_site:
+            site_val = working_site.strip()
 
         # 7. Validate Partner Teacher if provided
         partner_teacher = None
@@ -127,7 +138,7 @@ class BookingService:
                 )
 
         # 8. Determine category price snapshot
-        price_rwf = CategoryPrice.get_price_for_category(license_category)
+        price_rwf = CategoryPrice.get_price_for_category(clean_category) if clean_category else 0
 
         # 9. Instantiate and encrypt NID
         booking = BookingApplication(
@@ -136,14 +147,18 @@ class BookingService:
             last_name=last_name.strip(),
             phone_number=normalized_phone,
             date_of_birth=dob,
-            license_category=license_category,
+            license_category=clean_category,
+            provisional_license_number=provisional_license_number.strip() if provisional_license_number else None,
             preferred_district=clean_district,
+            testing_center=testing_center.strip() if testing_center else None,
             working_site=site_val,
             partner_teacher=partner_teacher,
+            teacher_name=teacher_name.strip() if teacher_name else None,
             price_rwf=price_rwf,
             state=BookingState.PENDING,
         )
-        booking.set_national_id(clean_nid)
+        if clean_nid:
+            booking.set_national_id(clean_nid)
         booking.save()
 
         # 10. Audit Logging (Law No 058/2021)
@@ -266,7 +281,7 @@ class BookingService:
 
         # Dispatch confirmation notification (SMS + In-App)
         test_date_str = str(booking.confirmed_test_date) if booking.confirmed_test_date else "To be announced"
-        venue_str = booking.confirmed_venue or booking.working_site or booking.preferred_district
+        venue_str = booking.confirmed_venue or booking.testing_center or booking.working_site or booking.preferred_district or "N/A"
         try:
             NotificationService.send_irembo_booking_confirmed(
                 user=booking.applicant,

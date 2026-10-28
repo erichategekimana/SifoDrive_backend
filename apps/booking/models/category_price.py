@@ -1,3 +1,5 @@
+from typing import Optional
+
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -42,8 +44,10 @@ class CategoryPrice(BaseModel):
         return f"Category {self.category}: {self.price_rwf:,} RWF"
 
     @classmethod
-    def get_price_for_category(cls, category: str) -> int:
+    def get_price_for_category(cls, category: Optional[str]) -> int:
         """Fetch active price for a category with safe default fallbacks."""
+        if not category:
+            return 0
         record = cls.objects.filter(category=category, is_active=True).first()
         if record:
             return record.price_rwf
